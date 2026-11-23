@@ -19,6 +19,6 @@ Questions it answers: "When was my globe made?", "How old is my globe?", "How do
 
 ## Facts
 
-- Free, no account, runs in the browser on phones, tablets and computers: https://didiermerk.github.io/dateaglobe/
+- Free, no account, runs in the browser on phones, tablets and computers: https://dateaglobe.app/
 - Made by Didier Merk: https://didiermerk.github.io/
 - Historical borders: CShapes 2.0 (ETH Zürich), geoBoundaries and Natural Earth.

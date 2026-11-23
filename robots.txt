@@ -2,4 +2,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://didiermerk.github.io/dateaglobe/sitemap.xml
+Sitemap: https://dateaglobe.app/sitemap.xml

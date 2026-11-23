@@ -1,0 +1,212 @@
+/* === "How it works" (help.js); linked after style.css ===================================================
+   The "?": the result's circled (i) ring with an upright question mark. It is the top bar's last piece on every screen,
+   so it always sits at the same place: the bar's right end. */
+.topbar .help-btn { position: relative; flex: none; width: 22px; height: 22px; margin: 0; font: 600 13.5px/1 var(--serif); font-style: normal; vertical-align: 0; }
+.topbar .help-btn::after { content: ''; position: absolute; inset: -12px; } /* a 44 px target around the 22 px ring (from inside its 1 px edge) */
+/* While the help is (partly) open, the ink fill follows it: help.js sets --on (0 → 1) on the help's own clock and curve each
+   frame, so no CSS transition of its own here (it would ease again on top and lag behind) */
+.topbar .help-btn.is-on {
+  transition: none;
+  background: color-mix(in srgb, var(--ink) calc(var(--on, 1) * 100%), transparent);
+  border-color: color-mix(in srgb, var(--ink) calc(var(--on, 1) * 100%), var(--ink-soft));
+  color: color-mix(in srgb, var(--paper) calc(var(--on, 1) * 100%), var(--ink-soft));
+}
+.topbar .help-btn.is-on:hover, .topbar .help-btn.is-on:focus-visible { border-color: var(--ink); color: color-mix(in srgb, var(--paper) calc(var(--on, 1) * 100%), var(--ink)); }
+/* The landing has no top bar: the "?" alone, at the very place it has on every other screen, coming in with the hero */
+body.mode-landing .topbar { display: flex; position: fixed; z-index: 3; top: var(--safe-t); left: var(--safe-l); right: var(--safe-r); border-bottom-color: transparent; pointer-events: none; }
+body.mode-landing .topbar .brand, body.mode-landing .topbar-right > :not(.help-btn) { visibility: hidden; }
+body.mode-landing .topbar .help-btn { pointer-events: auto; animation: fade-in .6s .5s both; }
+@media (prefers-reduced-motion: reduce) { body.mode-landing .topbar .help-btn { animation: none; } }
+
+/* A phone on its side, in the game: the result's (i) stands 14.5 px under the "?" (both at the right edge), and its target
+   reaches up into the bar. The two targets meet at the gap's middle, 7.25 px from each ring (the offsets count from inside
+   each ring's 1 px edge): the "?" 44 × 40, the (i) 44 × 39 */
+.vp-short body.mode-game:has(.game.g-res) .topbar .help-btn::after { bottom: -8.25px; } /* the result only: the play screen has no (i) */
+.vp-short .game .g-info::after { top: -8.25px; }
+
+/* --- The paper veil behind it (a tap on it closes), and the help itself ---------------------------------------
+   Phones: the app's bottom sheet (its paper, edge, 18 px corners, shadow and grabber). Upright tablets and laptops:
+   the same paper as a card in the middle. help.js sets the move (transform, opacity) on its one clock. */
+.help-veil { position: fixed; inset: 0; z-index: 40; background: var(--paper); opacity: 0; will-change: opacity; }
+.help { position: fixed; z-index: 41; background: var(--paper); color: var(--ink); touch-action: none; -webkit-user-select: none; user-select: none;
+  will-change: transform, opacity; overscroll-behavior: contain; } /* its own layers from the first frame: the slide and the veil's fade only move them */
+.help:focus { outline: none; }
+.help[hidden], .help-veil[hidden] { display: none; }
+.help.is-sheet {
+  left: 0; right: 0; bottom: 0; max-width: 620px; margin: 0 auto;
+  padding: 16px calc(24px + var(--safe-r)) calc(10px + var(--safe-b)) calc(24px + var(--safe-l));
+  border-top: 1px solid var(--paper-3); border-radius: 18px 18px 0 0; box-shadow: 0 -18px 44px -26px rgba(31, 42, 55, .5);
+}
+.help.is-sheet::before { content: ''; position: absolute; top: 6px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--paper-3); }
+.help.is-card {
+  left: 50%; top: 50%; width: min(460px, calc(100vw - 48px)); padding: 22px 32px 14px;
+  border: 1px solid var(--paper-3); border-radius: 14px; box-shadow: 0 24px 60px -30px rgba(31, 42, 55, .5);
+}
+.help.is-sheet.is-side { max-width: 760px; }
+
+/* The head on every page: the app's brand, small (the top bar's own mark and serif), and ✕ */
+.help-head { display: flex; align-items: center; height: 44px; margin: -4px 0 6px; }
+.help-brand { margin: 0; font: 600 16px var(--serif); letter-spacing: .02em; color: var(--ink); white-space: nowrap; }
+.help-brand .brand-mark { color: var(--brass); }
+.help.is-card .help-brand { font-size: 17px; }
+.help-close { flex: none; margin: 0 -12px 0 auto; width: 44px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink-soft); border-radius: 50%; }
+.help-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; display: block; margin: auto; }
+.help-close:hover { color: var(--ink); }
+.help-close:focus-visible { outline: 2px solid var(--brass); outline-offset: -4px; }
+
+/* The strip: three pages side by side, 48 px apart, clipped at the content's edges, so a page runs off the side as it goes */
+.help-view { overflow: hidden; }
+.help-track { display: flex; align-items: flex-start; will-change: transform; }
+.help-page { flex: none; }
+.help.is-side .help-page { display: flex; align-items: center; gap: 28px; }
+.help.is-side .help-words { flex: 1 1 0; min-width: 0; }
+.help-pics { position: relative; margin: 0 0 16px; }
+.help.is-side .help-pics { flex: none; margin: 0; }
+.help-stage { position: absolute; left: 50%; top: 0; width: 320px; height: 180px; margin-left: -160px; transform-origin: 50% 0; }
+/* the title in the app's serif, the points in its text voice */
+.help-title { margin: 0 0 6px; font: 500 19.5px/1.25 var(--serif); color: var(--ink); text-wrap: balance; }
+.help-points { margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 4px; font: 15px/1.42 var(--sans); color: var(--ink-soft); text-wrap: pretty; }
+.help-points li::marker { color: var(--brass); }
+.help.is-card .help-title { font-size: 20.5px; }
+.help.is-card .help-points { font-size: 15.5px; }
+.help.is-tiny .help-title { font-size: 18px; margin-bottom: 5px; }
+.help.is-tiny .help-points { font-size: 14px; line-height: 1.38; gap: 3px; }
+/* the dots: the game's marks (a filled ink dot for the page on screen, rings for the others), small and quiet */
+.help-dots { display: flex; justify-content: center; margin: 8px 0 0; }
+.help-dots button { width: 32px; height: 44px; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.help-dots svg { width: 9px; height: 9px; overflow: visible; }
+.help-dots circle { fill: none; stroke: var(--border); stroke-width: 1.1; opacity: .75; transition: fill .2s, stroke .2s, opacity .2s; }
+.help-dots button.on circle { fill: var(--ink); stroke: var(--ink); opacity: 1; }
+.help-dots button:focus-visible { outline: 2px solid var(--brass); outline-offset: -10px; border-radius: 50%; }
+
+/* --- The figures: the app's pieces at a small size (320 × 180, scaled to the room) ------------------------------ */
+.help-stage > * { position: absolute; margin: 0; }
+.hp-svg { left: 0; top: 0; width: 320px; height: 180px; overflow: visible; }
+.hp-globe { display: block; }
+.hp-axis line { stroke: var(--border); }
+.hp-axis text { font: 10.5px var(--sans); fill: var(--ink-soft); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.hp-band { fill: var(--brass); fill-opacity: .16; }
+.hp-bracket { fill: none; stroke: var(--brass); stroke-width: 1.5; }
+.hp-mark { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.hp-mark.yes { stroke: var(--ok); }
+.hp-mark.no { stroke: var(--accent); }
+.hp-dialbar { fill: var(--ink); fill-opacity: .5; }
+.hp-said { stroke: var(--ink-soft); stroke-width: 1.25; stroke-linecap: round; }
+.hp-dir { font: 600 11px var(--sans); fill: var(--ink); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.hp-needle { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.hp-now { fill: var(--ink); }
+.hp-todo { fill: none; stroke: var(--border); stroke-width: 1.1; opacity: .75; }
+.hp-label { margin: 0 0 6px; font: 600 10.5px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--brass); }
+.hp-q { margin: 0 0 8px; font: 500 18px/1.2 var(--serif); color: var(--ink); text-wrap: balance; }
+.hp-yn { display: flex; gap: 6px; }
+.hp-yn > span { display: grid; place-items: center; width: 50px; height: 30px; border-radius: 5px; font: 500 14px var(--serif); }
+.hp-yes { background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+.hp-no { background: #fffaf0; color: var(--ink); border: 1px solid var(--paper-3); }
+.hp-when .hp-label { margin-bottom: 2px; }
+.hp-big { font: 500 46px/1.08 var(--serif); color: var(--brass); font-variant-numeric: lining-nums tabular-nums; }
+.hp-gyear { transform: translateX(-50%); font: 500 30px/1.05 var(--serif); color: var(--ink); white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.hp-q-group, .hp-r-group { position: absolute; inset: 0; }
+.hp-q-group > *, .hp-r-group > * { position: absolute; margin: 0; }
+.hp-yn > span { transition: none; }
+.hp-yn > span.is-picked { box-shadow: 0 0 0 2px var(--paper), 0 0 0 3.5px var(--brass); }
+.hp-res .hp-kicker { margin: 0; font: 11.5px/1.3 var(--sans); color: var(--ink-soft); white-space: nowrap; }
+.hp-res .hp-big { color: var(--ink-soft); }
+.hp-range { margin: 2px 0 0; font: 14px/1.4 var(--serif); color: var(--ink-soft); }
+.hp-range-k { margin-right: 6px; font: 600 9.5px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--brass); }
+.hp-kicker { margin: 4px 0 0; font: 12.5px/1.3 var(--sans); color: var(--ink-soft); }
+.hp-gyear { font-size: 28px; }
+/* the game's figure: its words one step smaller, so every hint keeps to two lines above the year */
+.hp-small .hp-q { font-size: 16px; }
+.hp-small .hp-kicker { font-size: 11.5px; margin-top: 3px; }
+
+/* --- Page 1, the About (help.js ABOUT) ----------------------------------------------------------------------------
+   Your photo in a desk globe's brass ring and stand, the hello, three short paragraphs. At the page's foot (it takes the
+   height of the figure pages, so the open space sits under the words): plain icons and the coffee on one line. "Map
+   data" is the last page's footer (help.js CREDITS, below). */
+.help-page:has(.help-about), .help.is-side .help-page:has(.help-about) { align-self: stretch; display: flex; flex-direction: column; }
+.help-about { flex: 1; display: flex; flex-direction: column; min-width: 0; padding-top: 2px; }
+.ha-top { display: flex; gap: 14px; align-items: center; margin: 0 0 12px; }
+.ha-top .help-title { margin: 0; }
+.ha-sub { margin: 2px 0 0; font: 13px/1.35 var(--sans); color: var(--ink-soft); }
+.ha-globe { position: relative; flex: none; width: 81px; height: 85px; }
+.ha-globe svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; stroke: var(--brass); }
+.ha-globe img { position: absolute; left: 8.5px; top: 8.5px; width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+.ha-text { margin: 0; font: 15px/1.42 var(--sans); color: var(--ink-soft); } /* no text-wrap: pretty: Safari evens every line of a long paragraph and leaves a wide gap on the right */
+.ha-text + .ha-text { margin-top: .8em; }
+.help.is-card .ha-text { font-size: 15.5px; }
+.help.is-tiny .ha-text { font-size: 14px; line-height: 1.38; }
+.ha-ico { display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ha-end { margin-top: auto; padding-top: 4px; }
+/* the row: --k (help.js) scales icons, gaps and the coffee together, so they always fit one line */
+.ha-row { display: flex; flex-wrap: nowrap; align-items: center; gap: calc(4px * var(--k, 1)); margin: 16px 0 4px; }
+.ha-icon { position: relative; flex: none; display: grid; place-items: center; width: calc(36px * var(--k, 1)); height: calc(36px * var(--k, 1)); color: var(--ink-soft); }
+.ha-icon:first-child { margin-left: calc(-9px * var(--k, 1)); }
+.ha-icon .ha-ico { width: calc(19px * var(--k, 1)); height: calc(19px * var(--k, 1)); }
+.ha-icon::after { content: ''; position: absolute; inset: calc((44px - 36px * var(--k, 1)) / -2); } /* a 44 px target */
+.ha-icon:hover { color: var(--ink); }
+.ha-coffee { position: relative; flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: calc(8px * var(--k, 1)); height: calc(36px * var(--k, 1));
+  padding: 0 calc(14px * var(--k, 1)) 0 calc(11px * var(--k, 1)); border-radius: 5px; background: #fffaf0; border: 1px solid var(--paper-3);
+  color: var(--ink); font: 500 calc(14.5px * max(var(--k, 1), .86)) var(--serif); text-decoration: none; white-space: nowrap; }
+.ha-coffee::after { content: ''; position: absolute; inset: -4px 0; }
+.ha-coffee .ha-ico { width: 17px; height: 17px; color: var(--brass); }
+.ha-coffee:hover { border-color: var(--border); }
+.help-about a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; border-radius: 4px; }
+/* Map data (the last page's footer): each source a link that reads as plain text */
+.ha-credits { margin: 0; padding-top: 10px; border-top: 1px solid var(--paper-3); font: 11.5px/1.45 var(--sans); color: var(--ink-soft); }
+.ha-credits b { font-weight: 600; color: var(--ink); margin-right: 2px; }
+.ha-credits a, .ha-credits b { white-space: nowrap; }
+.ha-credits a { color: inherit; text-decoration: none; }
+.ha-credits a:hover { color: var(--ink); }
+/* a phone on its side has little height: a smaller globe and tighter gaps */
+.help.is-side .ha-top { margin-bottom: 8px; }
+.help.is-side .ha-globe { width: 66px; height: 69px; }
+.help.is-side .ha-globe img { left: 7px; top: 7px; width: 52px; height: 52px; }
+.help.is-side .ha-text + .ha-text { margin-top: .55em; }
+.help.is-side .ha-row { margin: 10px 0; }
+/* a phone on its side: two columns, as the figure pages have (figure | words): you and the hello on the left, the words
+   and the foot on the right */
+.help.is-side .help-about { display: grid; grid-template-columns: 150px minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; column-gap: 28px; }
+.help.is-side .ha-top { grid-row: 1 / -1; grid-column: 1; flex-direction: column; align-items: center; text-align: center; gap: 10px; margin: 6px 0 0; align-self: start; }
+.help.is-side .ha-globe { width: 81px; height: 85px; }
+.help.is-side .ha-globe img { left: 8.5px; top: 8.5px; width: 64px; height: 64px; }
+.help.is-side .ha-top .help-title { font-size: 18px; }
+.help.is-side .ha-text, .help.is-side .ha-end { grid-column: 2; }
+.help.is-side .ha-end { align-self: end; }
+/* a small phone (under 360 × 600): the same page, drawn in a little */
+.help.is-tiny:not(.is-side) .ha-top { margin-bottom: 8px; gap: 12px; }
+.help.is-tiny:not(.is-side) .ha-globe { width: 66px; height: 69px; }
+.help.is-tiny:not(.is-side) .ha-globe img { left: 7px; top: 7px; width: 52px; height: 52px; }
+.help.is-tiny:not(.is-side) .ha-text + .ha-text { margin-top: .55em; }
+.help.is-tiny:not(.is-side) .ha-row { margin: 10px 0 4px; }
+.help.is-tiny:not(.is-side) .ha-credits { padding-top: 8px; }
+
+/* --- Under every page: Previous · the dots · Next (help.js navFor / fitNav) ---------------------------------------
+   Quiet words in the app's serif: Next in ink with a brass chevron, Previous in the softer ink. The dots keep the centre
+   line on every page (both sides one width). The words' size (--nf) comes from help.js: 15 px, down to 12 where the row
+   is narrow. A button that has no page to go to fades out and keeps its place. */
+.help-nav { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; height: 44px; margin: 8px 0 0; }
+.help-nav .help-dots { margin: 0; }
+.help-nav .help-dots button { width: 20px; }
+.hn-prev, .hn-next { display: inline-flex; align-items: center; height: 36px; border: 0; background: none; cursor: pointer; white-space: nowrap; border-radius: 5px;
+  font: 500 var(--nf, 15px) var(--serif); transition: opacity .2s, visibility .2s, color .15s; }
+.hn-prev svg, .hn-next svg { flex: none; width: calc(var(--nf, 15px) + 1px); height: calc(var(--nf, 15px) + 1px); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.hn-prev { justify-self: start; gap: 4px; padding: 0 10px 0 4px; margin-left: -8px; color: var(--ink-soft); }
+.hn-next { justify-self: end; gap: 6px; padding: 0 0 0 10px; color: var(--ink); }
+.hn-next svg { color: var(--brass); stroke-width: 1.8; }
+/* hover: both words warm toward the brass (no underline); a touch screen has no hover, so phones never keep it */
+@media (hover: hover) { .hn-prev:hover, .hn-next:hover { color: color-mix(in srgb, var(--brass) 70%, var(--ink)); } }
+.hn-prev.is-off, .hn-next.is-off { opacity: 0; visibility: hidden; pointer-events: none; }
+.hn-prev:focus-visible, .hn-next:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.help-nav.is-icon .hn-prev span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.help-nav.is-icon .hn-prev { width: 44px; justify-content: center; padding: 0; margin-left: -12px; }
+@media (prefers-reduced-motion: reduce) { .hn-prev, .hn-next { transition: none; } }
+
+/* --- The last page's foot: "Map data" under a hairline (help.js CREDITS) ------------------------------------------
+   The page takes the help's height (the About's), so the credits sit at its foot, just above the row of Previous and
+   the dots, where the About has its icons. A phone on its side: right under the points, in the words' column. */
+.help-page.has-end { align-self: stretch; display: flex; flex-direction: column; }
+.help-page.has-end .help-words { flex: 1; display: flex; flex-direction: column; }
+.hl-end { margin-top: auto; padding-top: 14px; }
+.help.is-side .help-page.has-end { flex-direction: row; align-items: center; }
+.help.is-side .help-page.has-end .help-words { flex: 1 1 0; display: block; }
+.help.is-side .hl-end { margin-top: 14px; padding-top: 0; }
