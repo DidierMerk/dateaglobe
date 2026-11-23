@@ -1,0 +1,24 @@
+# Date a Globe
+
+> Date a Globe is a free web app that tells you when an old globe, map or atlas was made, and a geography puzzle game where you guess when a globe was made.
+
+Every globe is a snapshot of the year it was made. Over the years countries split, join together or take new names; capitals move and lakes dry up. Its borders and names tell the story of the world at the time it was made.
+
+## Date your globe, map or atlas
+
+Questions it answers: "When was my globe made?", "How old is my globe?", "How do I date an old map?", "What year is this world map from?", "How old is my atlas?"
+
+- With the globe, map or atlas in front of you, you answer a few yes or no questions about what it shows: country names (Zaire, Ceylon, Burma), borders (one or two Germanies, the Soviet Union, Yugoslavia), capitals (Rio de Janeiro or Brasília) and lakes (the Aral Sea).
+- Every answer narrows down the years in which it could have been made. The result is the most likely year it was printed and the range of years it could be from, with the history behind each answer.
+- It covers globes and maps from 1886 to today, labelled in 14 languages, and takes into account that printers often update their plates years after a change.
+
+## Guess the year (game)
+
+- Test your knowledge: you see a globe from the past and guess the year it shows. Five guesses; every miss earns a hint that says why the guess was too early or too late.
+- Share your score with friends, or send your own dated globe to a friend as a game.
+
+## Facts
+
+- Free, no account, runs in the browser on phones, tablets and computers: https://didiermerk.github.io/dateaglobe/
+- Made by Didier Merk: https://didiermerk.github.io/
+- Historical borders: CShapes 2.0 (ETH Zürich), geoBoundaries and Natural Earth.

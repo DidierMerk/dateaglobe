@@ -1,0 +1,79 @@
+/* === "Share" on the dating result (share-modal.js); linked after help.css ===============================================
+   The help's card, veil and head (brand on the left, ✕ on the right) with two pages: the top of a phone playing the
+   conversation, cut just below it and dissolving into the card; the title and a line in the help's voice; Copy | Share.
+   A floating card on every size (phones: 12 px from the screen's sides). */
+.sh .sh-head { margin: -4px 0 6px; }
+.sh.is-side .sh-head { margin: 0 0 2px; }
+.help.sh.is-card { width: min(400px, calc(100vw - 48px)); padding-top: 22px; padding-bottom: 22px; }
+.help.sh.is-card.is-side { width: min(620px, calc(100vw - 48px)); padding: 22px 36px 14px; }
+/* phones: the same floating card, 12 px from the screen's sides */
+.help.sh.is-card.is-small { width: calc(100vw - 24px - var(--safe-l) - var(--safe-r)); padding: 14px 16px 16px; border-radius: 22px; }
+.help.sh.is-card.is-small.is-side { width: min(620px, calc(100vw - 24px - var(--safe-l) - var(--safe-r))); padding: 6px 24px 12px; }
+.sh-page { display: flex; flex-direction: column; align-items: center; }
+/* the half phone: drawn at 300 × 650 and scaled (share-modal.js); the box shows its top, down to just below the
+   conversation, and fades it out over the last --fade px (a mask: transparency, no colour of its own) */
+.sh-phone-box { position: relative; flex: none; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade, 30px)), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade, 30px)), transparent); }
+.sh-phone { position: absolute; left: 0; top: 0; width: 300px; height: 650px; transform-origin: 0 0; box-sizing: border-box; padding: 9px;
+  border-radius: 48px; background: var(--ink); box-shadow: 0 0 0 1px rgba(31, 42, 55, .25), 0 22px 40px -24px rgba(31, 42, 55, .55); }
+.sh-screen { position: relative; height: 100%; border-radius: 40px; overflow: hidden; background: #fffaf0; display: flex; flex-direction: column; }
+.sh-status { position: relative; flex: none; height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 4px 24px 0 30px; font: 600 13px var(--sans); color: var(--ink); }
+.sh-island { position: absolute; left: 50%; top: 9px; width: 84px; height: 24px; margin-left: -42px; border-radius: 12px; background: var(--ink); }
+.sh-sys { width: 54px; height: 12px; }
+.sh-top { position: relative; flex: none; height: 52px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--paper-3); }
+.sh-back { position: absolute; left: 14px; top: 12px; width: 10px; height: 18px; color: var(--brass); }
+.sh-who { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.sh-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--paper-3); color: var(--ink); font: 600 14px var(--serif); }
+.sh-name { font: 500 11px var(--sans); color: var(--ink); }
+/* the conversation: from the top of the screen, so it grows downward */
+.sh-chat { position: relative; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 0 10px; }
+.sh-chat-in { margin-top: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 0 6px; }
+.sh-msg { display: flex; flex: none; }
+.sh-msg[hidden] { display: none; }
+.sh-msg.out { justify-content: flex-end; }
+.sh-msg.out + .sh-msg.in { margin-top: 6px; }
+.sh-bub { margin: 0; max-width: 92%; padding: 7px 11px 8px; border-radius: 18px; font: var(--sh-fs, 15px)/1.3 var(--sans); text-wrap: pretty; transform-origin: 100% 100%; -webkit-user-select: text; user-select: text; }
+.sh-msg.out .sh-bub { background: var(--ink); color: var(--paper); border-bottom-right-radius: 5px; }
+.sh-msg.in .sh-bub { background: var(--paper-2); color: var(--ink); border-bottom-left-radius: 5px; transform-origin: 0 100%; }
+.sh-typing { display: flex; gap: 4px; align-items: center; height: 34px; padding: 0 14px; box-sizing: border-box; }
+.sh-bub[hidden] { display: none; }
+.sh-typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-soft); opacity: .35; animation: sh-dot 1.2s infinite ease-in-out; }
+.sh-typing i:nth-child(2) { animation-delay: .15s; } .sh-typing i:nth-child(3) { animation-delay: .3s; }
+.sh-msg.out .sh-mytyping i { background: var(--paper); opacity: .55; } /* your own dots: paper on ink */
+@keyframes sh-dot { 0%, 60%, 100% { opacity: .3; transform: none; } 30% { opacity: .8; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .sh-typing i { animation: none; } }
+.sh-line, .sh-fact { display: block; }
+.sh-fact { position: relative; padding-left: 1.45em; }
+.sh-pin { position: absolute; left: 0; }
+.sh-gap { display: block; height: 1.3em; } /* a blank line */
+.sh-link { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; overflow-wrap: anywhere; }
+/* a line that is only the game's link: one line, an ellipsis at the bubble's edge (the bubble takes its widest, 92%) */
+.sh-url { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-url .sh-link { overflow-wrap: normal; }
+/* the words under the phone: the help's title and its text voice (help.css .help-title, .help-points); both pages as
+   tall as the taller (share-modal.js), so the buttons stay in place */
+.sh-words { align-self: stretch; margin-top: 16px; }
+.sh-lead { margin: 0; font: 15px/1.42 var(--sans); color: var(--ink-soft); text-wrap: pretty; }
+.help.is-card .sh-lead { font-size: 15.5px; }
+.help.is-tiny .sh-lead { font-size: 14px; line-height: 1.38; }
+/* the actions: Copy (paper) | Share (ink), 50/50 */
+.sh-acts { align-self: stretch; display: flex; gap: 10px; margin-top: 16px; }
+.sh-acts > button { flex: 1 1 0; min-width: 0; height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; padding: 0 16px; }
+.sh-acts svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+/* one row for both pages, still while the strip moves, over the first page's slot (share-modal.js); a phone on its side
+   shows each page's own buttons in their slot instead, turning with the page */
+.sh:not(.is-side) .sh-slot { visibility: hidden; }
+.sh.is-side .sh-still, .sh-still[hidden] { display: none; }
+.sh .sh-acts.sh-still, .sh.is-side .sh-acts.sh-still { position: absolute; z-index: 1; margin: 0; }
+/* the arrows: the help's ✕ voice (ink-soft, a 1.6 px line), 44 px targets, beside the phone's middle */
+.sh .help-view { position: relative; }
+.sh-arrow { position: absolute; z-index: 2; width: 44px; height: 44px; margin-top: -22px; padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink-soft); display: grid; place-items: center; }
+.sh-arrow svg { width: 11px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sh-arrow:hover { color: var(--ink); }
+.sh-arrow:focus-visible { outline: 2px solid var(--brass); outline-offset: -6px; border-radius: 50%; }
+/* a phone on its side: the phone on the left, the words and the actions on the right, centred */
+.sh.is-side .sh-page { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 1fr auto auto 1fr; grid-template-areas: "phone ." "phone words" "phone acts" "phone ."; column-gap: 32px; align-items: center; padding-left: 30px; box-sizing: border-box; }
+.sh.is-side .sh-phone-box { grid-area: phone; }
+.sh.is-side .sh-words { grid-area: words; margin: 0; }
+.sh.is-side .sh-acts { grid-area: acts; margin-top: 12px; }
+.sh.is-side .sh-acts > button { height: 44px; }

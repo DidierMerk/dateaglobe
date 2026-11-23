@@ -1,0 +1,1461 @@
+/* Date a Globe prototype: modern cartographic look.
+   Warm paper, deep ink ocean, brass accents. Colour never carries meaning alone. */
+
+:root {
+  --paper: #f4ecdc;
+  --paper-2: #ebe0c8;
+  --paper-3: #e2d4b6;
+  --ink: #1f2a37;
+  --ink-soft: #4a5565;
+  --ocean: #1d3550;
+  --ocean-2: #24415f;
+  --land: #e9dcc0;
+  --border: #9c8a66;
+  --brass: #b08a3e;
+  --accent: #b5452c;      /* vermilion, used sparingly */
+  --ok: #3f6b4a;
+  --radius: 10px;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+/* One page, never scrolled: the app is exactly as tall as the visible window (dvh follows mobile
+   browser bars; viewport.js sets --app-h while a keyboard is up). The paper runs under the notch
+   and the home bar; the safe-area padding keeps everything else clear of them. */
+html { height: 100%; overflow: hidden; overscroll-behavior: none; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+:root {
+  --safe-t: env(safe-area-inset-top, 0px); --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px); --safe-l: env(safe-area-inset-left, 0px);
+  --vh: 100vh;
+}
+@supports (height: 100dvh) { :root { --vh: 100dvh; } }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.5 var(--sans);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); /* never wider than the window */
+  height: var(--app-h, var(--vh)); overflow: hidden; overscroll-behavior: none;
+  padding: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
+  -webkit-tap-highlight-color: transparent;
+}
+button, input, select, [role="button"] { touch-action: manipulation; }
+
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 28px; border-bottom: 1px solid var(--paper-3);
+}
+.brand { font: 600 22px var(--serif); letter-spacing: .02em; white-space: nowrap; }
+.brand-mark { color: var(--brass); }
+.status { font-size: 14px; color: var(--ink-soft); }
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.1fr) minmax(340px, 1fr);
+  gap: 24px; padding: 20px 28px; min-height: 0;
+}
+
+.globe-wrap { position: relative; display: grid; place-items: center; min-height: 360px; }
+/* The globe is one fixed layer behind the page; globe.js draws it where .globe-wrap is, so it can glide between layouts */
+#globe { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; view-transition-name: globe; }
+/* "Where are we?": a loupe clipped to the lens rim at half past four. The lens is centred in
+   .globe-wrap with radius min(w, h)/2 - 8 px (globe.js), so container units place it on the ring. */
+.globe-wrap { container-type: size; --lens-r: calc(50cqmin - 8px); }
+.where {
+  position: absolute; z-index: 2;
+  left: calc(50% + var(--lens-r) * .7071 - 19px); top: calc(50% + var(--lens-r) * .7071 - 19px);
+  display: flex; align-items: center; gap: 10px;
+  padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink);
+  opacity: 0; transform: translateY(4px); pointer-events: none;
+  transition: opacity .35s ease, transform .35s ease;
+}
+body.mode-quiz .where.is-shown { opacity: 1; transform: none; pointer-events: auto; }
+.where-loupe {
+  display: grid; place-items: center; width: 38px; height: 38px; flex: none;
+  border-radius: 50%; background: var(--paper); border: 1px solid var(--brass);
+  transition: background-color .2s ease, border-color .2s ease;
+}
+.where-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.where-handle { stroke-width: 2.2; }
+/* The minus grows its upright into a plus once we have zoomed out */
+.where-bar { transform-box: fill-box; transform-origin: center; transform: scaleY(0); transition: transform .3s cubic-bezier(.3, .7, .2, 1); }
+.where.is-out .where-bar { transform: scaleY(1); }
+.where-label {
+  font: italic 15px var(--serif); color: var(--ink-soft); white-space: nowrap;
+  padding: 2px 8px 2px 0; border-radius: 4px; background: rgba(244,236,220,.85);
+  transition: color .2s ease;
+}
+.where:hover .where-loupe, .where:focus-visible .where-loupe { background: var(--paper-2); }
+.where:hover .where-label, .where:focus-visible .where-label { color: var(--ink); }
+.where:focus-visible { outline: none; }
+.where:focus-visible .where-loupe { outline: 2px solid var(--brass); outline-offset: 2px; }
+/* A nearly square column (phones) has no room right of the lens: the label sits to the loupe's left, over the rim */
+@container (aspect-ratio < 1.3) {
+  .where { flex-direction: row-reverse; left: auto; right: calc(50% - var(--lens-r) * .7071 - 19px); }
+  .where-label { padding: 2px 10px; border-radius: 999px; }
+}
+@media (prefers-reduced-motion: reduce) { .where, .where-bar { transition: none; } }
+
+.globe-caption {
+  position: absolute; bottom: 6px; left: 0; right: 0; text-align: center;
+  font: italic 14px var(--serif); color: var(--ink-soft);
+}
+
+.panel {
+  background: rgba(255,255,255,.35); border: 1px solid var(--paper-3); border-radius: 14px;
+  padding: 26px 28px; overflow: auto; align-self: start; max-height: calc(var(--vh) - 230px);
+}
+.panel h1, .panel h2 { font-family: var(--serif); font-weight: 600; margin: 0 0 10px; line-height: 1.2; }
+.panel h1 { font-size: 30px; }
+.panel h2 { font-size: 23px; }
+
+.btn {
+  cursor: pointer; font: 600 15px var(--sans); border-radius: 999px; padding: 10px 20px;
+  border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
+}
+.btn:hover { background: var(--ocean); }
+.btn:disabled { opacity: .4; cursor: default; }
+
+/* --- Evidence timeline: a bar per answer, stacked above the axis ------------------- */
+/* Ten 13 px rows that scroll (scrollbar hidden; fades show where more rows hide) + footer
+   (overlap strip and axis). The "Most likely" label is an overlay riding on the top row. */
+:root { --tl-h: min(182px, 30vh); }
+.timeline-wrap { position: relative; height: var(--tl-h); margin: 0 40px 10px; padding-top: 22px; display: flex; flex-direction: column; }
+.tl-head { position: absolute; top: 0; left: 0; display: block; overflow: visible; pointer-events: none; z-index: 1; }
+.tl-foot { flex: none; display: block; overflow: visible; height: 30px; } /* timeline.js FOOT_H: sized before the first draw, so the rows get their room */
+.tl-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none; }
+.tl-scroll::-webkit-scrollbar { display: none; }
+.tl-body { display: block; }
+/* Soft fades where more rows hide above or below */
+.timeline-wrap.more-above .tl-scroll { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px); mask-image: linear-gradient(to bottom, transparent, #000 16px); }
+.timeline-wrap.more-below .tl-scroll { -webkit-mask-image: linear-gradient(to top, transparent, #000 16px); mask-image: linear-gradient(to top, transparent, #000 16px); }
+.timeline-wrap.more-above.more-below .tl-scroll { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.tl-axis text { font: 11px var(--sans); fill: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.tl-axis line, .tl-axis path { stroke: var(--border); }
+.tl-heat rect { fill: var(--brass); }
+.tl-band .win-fill { fill: var(--brass); fill-opacity: .13; }
+.tl-band .win-bracket { fill: none; stroke: var(--brass); stroke-width: 1.5; }
+.tl-band .win-label { font: 600 11px var(--sans); letter-spacing: .1em; text-transform: uppercase; fill: var(--brass); text-anchor: middle; }
+.tl-body .row { cursor: pointer; transition: opacity .25s; outline: none; }
+.tl-body .row:focus-visible .row-hit, .tl-body .row.open .row-hit { fill: rgba(176,138,62,.14); }
+.tl-body .row-hit { fill: transparent; }
+.tl-body .row-track { stroke: var(--paper-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.tl-body .row .bar { fill: var(--ink); fill-opacity: .55; transition: fill .2s, fill-opacity .2s; }
+.tl-body .row .bar-hi { fill: var(--brass); }
+.tl-body .row-label { font: 12px var(--serif); fill: var(--ink-soft); }
+.tl-body .row-mark { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tl-body .row-mark.yes { stroke: var(--ok); }
+.tl-body .row-mark.no { stroke: var(--accent); }
+.tl-rows.focus .row:not(.on) { opacity: .25 !important; } /* beats the inline opacity set by row transitions */
+.tl-body .row.on .bar { fill: var(--ocean); fill-opacity: .9; }
+.tl-body .row.on .row-label { fill: var(--ink); }
+.tl-tip {
+  position: absolute; z-index: 5; max-width: 320px; pointer-events: none;
+  background: var(--ink); color: var(--paper); border-radius: 6px; padding: 10px 14px;
+  box-shadow: 0 12px 30px -12px rgba(31,42,55,.6); animation: pop .15s ease-out;
+}
+.tl-tip[hidden] { display: none; }
+.tl-tip-subject { font: 600 10px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--brass); }
+.tl-tip-q { font: 15px/1.4 var(--serif); margin: 3px 0 4px; }
+.tl-tip-q strong { font-family: var(--sans); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin-left: 4px; }
+.tl-tip-range { font-size: 13px; color: rgba(244,236,220,.75); }
+@keyframes pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ===========================================================================
+   Modes: landing (hero) -> setup (guided steps) -> quiz
+   =========================================================================== */
+
+.brand { background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }
+.landing { display: none; }
+
+body.mode-landing .timeline-wrap, body.mode-setup .timeline-wrap { display: none; }
+body.mode-setup .status { visibility: hidden; }
+body.mode-setup .topbar { border-bottom-color: transparent; }
+
+/* --- Landing: a large globe rises from the bottom edge, on the same paper ---------- */
+body.mode-landing { overflow: hidden; }
+body.mode-landing .topbar, body.mode-landing .panel, body.mode-landing .globe-caption { display: none; }
+body.mode-landing .layout { display: block; padding: 0; }
+body.mode-landing .globe-wrap { position: fixed; inset: 0; height: auto; min-height: 0; }
+body.mode-landing .landing {
+  display: flex; position: fixed; inset: 0; z-index: 2; pointer-events: none;
+  justify-content: center; align-items: flex-start; padding-top: max(6vh, 36px);
+}
+.hero { text-align: center; padding: 0 24px; pointer-events: auto; }
+.hero > * { animation: rise .9s cubic-bezier(.2,.7,.2,1) both; }
+.hero > :nth-child(2) { animation-delay: .1s; }
+.hero > :nth-child(3) { animation-delay: .2s; }
+.hero > :nth-child(4) { animation-delay: .35s; }
+.hero-brand { font: 600 14px var(--serif); letter-spacing: .32em; text-transform: uppercase; color: var(--brass); margin-bottom: 4vh; }
+.hero-title { font: 500 clamp(34px, 4.8vw, 62px)/1.08 var(--serif); letter-spacing: -.01em; margin: 0; color: var(--ink); text-wrap: balance; }
+.odometer {
+  display: flex; justify-content: center; gap: 2px; margin: 2.4vh 0 3.2vh;
+  font: 500 clamp(40px, 5.6vw, 72px)/1 var(--serif); color: var(--brass);
+  font-variant-numeric: lining-nums tabular-nums;
+  -webkit-mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent);
+          mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent);
+}
+.odometer .digit { display: inline-block; height: 1.15em; overflow: hidden; }
+.odometer .strip { display: flex; flex-direction: column; transition: transform 1.4s cubic-bezier(.65,0,.25,1); }
+.odometer .strip span { height: 1.15em; display: grid; place-items: center; }
+.odometer .digit:nth-child(2) .strip { transition-delay: .08s; }
+.odometer .digit:nth-child(3) .strip { transition-delay: .16s; }
+.odometer .digit:nth-child(4) .strip { transition-delay: .24s; }
+.btn-begin {
+  display: inline-flex; align-items: center; gap: 14px; cursor: pointer;
+  font: 500 16px var(--sans); letter-spacing: .02em; color: var(--paper);
+  background: var(--ink); border: 0; border-radius: 4px; padding: 15px 22px 15px 26px;
+  transition: background .2s;
+}
+.btn-begin .arrow { transition: transform .25s cubic-bezier(.2,.7,.2,1); }
+.btn-begin:hover { background: var(--ocean); }
+.btn-begin:hover .arrow { transform: translateX(4px); }
+.btn-begin:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+
+/* --- Setup and clues: globe left, one question right ---------------------------- */
+body.mode-setup .layout, body.mode-quiz .layout {
+  height: calc(var(--app-h, var(--vh)) - 62px); grid-template-columns: 1.15fr 1fr; gap: 56px; padding: 0 56px 40px; align-items: center;
+}
+body.mode-quiz .layout { height: calc(var(--app-h, var(--vh)) - 62px - var(--tl-h) - 10px); padding-bottom: 8px; }
+body.mode-setup .globe-wrap, body.mode-quiz .globe-wrap { height: 100%; max-height: 720px; }
+body.mode-setup .panel, body.mode-quiz .panel {
+  background: none; border: 0; border-radius: 0; padding: 0; max-width: 460px;
+  max-height: none; overflow: visible; align-self: center;
+}
+body.mode-quiz .topbar { border-bottom-color: transparent; }
+/* The panel never runs under the timeline: if a long answer doesn't fit, it scrolls in place */
+.vp-wide body.mode-quiz .panel { max-height: 100%; overflow-y: auto; scrollbar-width: thin; padding-right: 8px; }
+@media (max-height: 820px) {
+  .vp-wide .a-years { font-size: clamp(30px, 3.2vw, 42px); }
+  .vp-wide .a-story { font-size: 15.5px; line-height: 1.5; }
+  .vp-wide .a-when { margin-top: 14px; padding-top: 12px; }
+  .vp-wide .q-title { font-size: clamp(26px, 2.6vw, 34px) !important; }
+  .vp-wide .yn { height: 56px; }
+  .vp-wide .q { min-height: 0; }
+}
+
+/* --- The result: the timeline becomes the verdict chart -------------------------- */
+/* A band on top holds the globe, the verdict and the "Reading the chart" legend; the chart
+   runs under it at full width, so the globe never sits over the bars. The band keeps one
+   height whether the legend is open or not, so the chart never jumps (app.js fitBand grows
+   it only when the legend has to stack under the verdict). Band and chart share one animated
+   length, so the page reshapes in a single glide. */
+@property --tl-h { syntax: '<length>'; inherits: true; initial-value: 182px; }
+@property --res-h { syntax: '<length>'; inherits: true; initial-value: 312px; }
+body { transition: --tl-h .85s cubic-bezier(.65, 0, .35, 1), --res-h .5s cubic-bezier(.65, 0, .35, 1); }
+body.mode-result { --res-h: 312px; --tl-h: max(300px, calc(var(--app-h, var(--vh)) - 62px - var(--res-h) - 10px)); }
+/* fr to fr, so the columns glide (a minmax() track cannot be animated and would snap).
+   The side padding matches the chart's margin, so the band and the chart share their edges. */
+body.mode-result .layout { grid-template-columns: .3fr 1fr; gap: 0; padding: 4px 40px 14px; align-items: start; }
+/* Wide windows: the band sits over the timeline itself, not over its labels (the label column is
+   verdict.js GUTTER wide), so the globe, the verdict and the legend share the chart's width */
+@media (min-width: 1101px) { .vp-wide body.mode-result .layout { padding-left: calc(40px + 200px); } }
+body.mode-quiz .layout { transition: grid-template-columns .85s cubic-bezier(.65, 0, .35, 1), gap .85s cubic-bezier(.65, 0, .35, 1), padding .85s cubic-bezier(.65, 0, .35, 1); }
+/* A fixed height, pinned to the top: the globe stays put if the band grows */
+body.mode-quiz.mode-result .globe-wrap { height: 292px; min-height: 0; max-height: none; }
+/* Its height glides with the columns (from the question screen's full height), so the globe shrinks in one motion */
+body.mode-quiz .globe-wrap { transition: height .85s cubic-bezier(.65, 0, .35, 1); }
+body.mode-result .globe-caption { display: none; }
+body.mode-result .panel { align-self: start; overflow: visible; padding-top: 34px; }
+
+.timeline-wrap > .tl-scroll, .timeline-wrap > .tl-foot, .timeline-wrap > .tl-head { transition: opacity .3s ease; }
+.timeline-wrap.is-verdict > .tl-scroll, .timeline-wrap.is-verdict > .tl-foot, .timeline-wrap.is-verdict > .tl-head { opacity: 0; pointer-events: none; }
+.vd { position: absolute; inset: 0; display: flex; flex-direction: column; animation: vd-in .5s ease both; }
+.vd[hidden] { display: none; }
+@keyframes vd-in { from { opacity: 0; } }
+.vd svg { display: block; overflow: visible; }
+.vd-scroll { overflow-y: auto; overflow-x: hidden; scrollbar-width: none; overscroll-behavior: contain; }
+.vd-scroll::-webkit-scrollbar { display: none; }
+
+/* The belief curve: ghost ridges of earlier answers under the current one */
+.vd-area { fill: var(--brass); fill-opacity: .12; }
+.vd-area-hi { fill: var(--brass); fill-opacity: .42; }
+.vd-line { fill: none; stroke: var(--brass); stroke-width: 1.6; stroke-linejoin: round; }
+.vd-ghosts path { fill: none; stroke: var(--brass); stroke-width: 1; }
+.vd-band { fill: var(--brass); fill-opacity: .1; }
+.vd-edge { stroke: var(--brass); stroke-width: 1; stroke-dasharray: 3 3; }
+
+/* Rows: like the evidence timeline, roomier, read top to bottom in the order answered */
+.vd-row { cursor: pointer; outline: none; transition: opacity .25s; }
+.vd-row .row-hit { fill: transparent; }
+.vd-row:focus-visible .row-hit { fill: rgba(176,138,62,.14); }
+.vd-row .row-track { stroke: var(--paper-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.vd-row .row-label { font: 13px var(--serif); fill: var(--ink-soft); text-anchor: end; transition: fill .3s; }
+.vd-row .row-label.is-wrapped { font-size: 12px; } /* a long subject, on two lines */
+.vd-row .row-mark { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.vd-row .row-mark.yes { stroke: var(--ok); }
+.vd-row .row-mark.no { stroke: var(--accent); }
+.vd-row .bar { fill: var(--ink); fill-opacity: .5; transition: fill-opacity .5s ease; }
+.vd-row .bar.is-open { fill-opacity: .12; } /* before its answer lands: every year is still possible */
+.vd-row .bar-agree { fill: var(--ink); }
+.vd-row.is-now .row-label, .vd-row.on .row-label { fill: var(--ink); }
+.vd-rowset.focus .vd-row:not(.on) { opacity: .28; }
+
+/* Where the answers agree: ink, because it is the answers' own evidence (brass is the verdict) */
+.vd-agree-fill { fill: var(--ink); fill-opacity: .045; }
+.vd-agree-edge { stroke: var(--ink); stroke-opacity: .5; stroke-width: 1; }
+.vd-agree-bracket { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+.vd-agree-label { font: 600 10px var(--sans); letter-spacing: .1em; text-transform: uppercase; fill: var(--ink); opacity: 0; transition: opacity .5s ease .3s; }
+.vd.is-final .vd-agree-label { opacity: 1; }
+
+/* The most likely year and its range come first, settled; the chart replays after */
+.vd-panel .a-kicker { margin-bottom: 2px; }
+.vd-years { font: 500 clamp(44px, 5vw, 68px)/1.05 var(--serif); color: var(--brass); font-variant-numeric: lining-nums tabular-nums; }
+.vd-range { margin: 8px 0 0; font: 17px/1.45 var(--serif); color: var(--ink-soft); }
+.vd-range-k { font: 600 11px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--brass); margin-right: 6px; }
+.vd-panel .actions { margin-top: 22px; }
+
+/* The year is an odometer (odometer.js): wheels of 0-9 plus a second 0, one cell tall */
+.odo { display: inline-flex; vertical-align: top; }
+.odo-wheel { display: inline-block; height: 1.1em; overflow: hidden; }
+.odo-strip { display: flex; flex-direction: column; will-change: transform; }
+.odo-strip span { height: 1.1em; display: grid; place-items: center; }
+
+/* The step into the result (app.js BEAT): the answer screen fades out, then the question, the
+   year rolling in ink and landing in brass, and after it the range and the buttons */
+/* An animation, not a transition: the entrance animation's fill would hold opacity at 1 */
+.panel.is-leaving > * { animation: leave .3s ease forwards; pointer-events: none; }
+@keyframes leave { to { opacity: 0; } }
+.status { transition: opacity .3s ease; }
+.status.is-leaving { opacity: 0; }
+/* (the lines live in .vd-main; the "Reading the chart" legend beside it has its own toggle) */
+.vd-panel.is-arriving .vd-main > * { opacity: 0; transform: translateY(6px); transition: opacity .6s ease, transform .6s ease; }
+.vd-panel.is-arriving.show-kicker .vd-main > .a-kicker,
+.vd-panel.is-arriving.show-year .vd-main > .vd-years,
+.vd-panel.is-arriving.landed .vd-main > * { opacity: 1; transform: none; }
+.vd-panel.is-arriving .vd-main > .vd-years { color: var(--ink-soft); transition: opacity .5s ease, transform .5s ease, color .7s ease; }
+.vd-panel.is-arriving.landed .vd-main > .vd-years { color: var(--brass); }
+.vd-panel.is-arriving:not(.landed) .odo { -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); }
+.vd-panel.is-arriving.landed .vd-main > .vd-range { transition-delay: .25s; }
+.vd-panel.is-arriving.landed .vd-main > .a-misfit { transition-delay: .4s; }
+.vd-panel.is-arriving.landed .vd-main > .actions { transition-delay: .55s; }
+/* While the chart replays, the year is only the guess so far: faint ink, rolling with each answer.
+   At the verdict it comes up to full strength and turns brass (opacity and colour ease together). */
+.vd-panel.is-arriving.is-weighing.show-year .vd-main > .vd-years { opacity: .38; }
+.vd-panel.is-arriving.landed .vd-main > .vd-years { transition: opacity .8s ease, color .8s ease; }
+
+/* The most likely year, pinned on the curve's peak */
+.vd-peak { opacity: 0; transition: opacity .5s ease .3s; }
+.vd.is-final .vd-peak { opacity: 1; }
+.vd-peak circle { fill: var(--brass); stroke: var(--paper); stroke-width: 1.5; }
+.vd-peak line { stroke: var(--brass); stroke-width: 1; }
+.vd-peak text { font: 700 13px var(--sans); letter-spacing: .06em; fill: var(--brass); font-variant-numeric: tabular-nums; }
+
+/* Hovering an answer lights its ridge; the rest of the curve steps back */
+.vd-ridge-on { fill: none; stroke: var(--brass); stroke-width: 2.2; stroke-linejoin: round; pointer-events: none; }
+.vd-area, .vd-area-hi, .vd-line, .vd-ghosts { transition: opacity .2s; }
+.vd.ridge-on .vd-area, .vd.ridge-on .vd-area-hi, .vd.ridge-on .vd-line { opacity: .3; }
+.vd.ridge-on .vd-ghosts { opacity: .5; }
+@media (prefers-reduced-motion: reduce) { body, body.mode-quiz .layout, body.mode-quiz .globe-wrap { transition: none; } .vd { animation: none; } .panel.is-leaving > * { animation-duration: .01s; } }
+
+/* --- A clue: one picture, one question ----------------------------------------- */
+.q-context { margin: 0 0 18px; font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--brass); }
+.q-was { color: var(--ink-soft); }
+/* Room for the opened hint is kept, so unfolding it never shifts the question itself */
+.vp-wide .q { min-height: 440px; }
+.q-title { font: 500 clamp(28px, 2.9vw, 38px)/1.18 var(--serif) !important; margin: 0 0 18px !important; text-wrap: balance; }
+.q-name { text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
+
+/* "What to look for": a quiet toggle that unfolds a hint card (grid rows animate 0fr -> 1fr) */
+.look-toggle {
+  display: inline-flex; align-items: center; gap: 10px; padding: 4px 0; cursor: pointer;
+  background: none; border: 0; font: inherit; font-size: 15px; color: var(--ink-soft); transition: color .2s;
+}
+.look-toggle:hover, .look.open .look-toggle { color: var(--ink); }
+.look-icon {
+  position: relative; width: 20px; height: 20px; border-radius: 50%; border: 1px solid currentColor; flex: none;
+  transition: transform .35s cubic-bezier(.3,1.4,.5,1), background .2s, border-color .2s;
+}
+.look-icon::before, .look-icon::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 1.5px; background: currentColor;
+  transform: translate(-50%, -50%); border-radius: 1px;
+}
+.look-icon::after { transform: translate(-50%, -50%) rotate(90deg); }
+.look.open .look-icon { transform: rotate(45deg); background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.look.open .look-toggle { color: var(--ink); }
+.look-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.2,.7,.2,1); }
+.look.open .look-body { grid-template-rows: 1fr; }
+.look-inner { overflow: hidden; }
+.look-inner p {
+  margin: 12px 0 2px; padding: 14px 18px; max-width: 32em;
+  font: 16px/1.6 var(--serif); color: var(--ink);
+  background: #fffaf0; border-left: 2px solid var(--brass); border-radius: 0 6px 6px 0;
+  opacity: 0; transform: translateY(-6px); transition: opacity .3s ease, transform .4s cubic-bezier(.2,.7,.2,1);
+}
+.look.open .look-inner p { opacity: 1; transform: none; transition-delay: .08s; }
+.yesno { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; }
+.yn {
+  height: 64px; border-radius: 6px; cursor: pointer;
+  font: 500 20px var(--serif); letter-spacing: .02em; transition: background .15s, border-color .15s, transform .1s;
+}
+.yn:active { transform: scale(.98); }
+.yn.yes { background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+.yn.yes:hover { background: var(--ocean); }
+.yn.no { background: #fffaf0; color: var(--ink); border: 1px solid var(--paper-3); }
+.yn.no:hover { border-color: var(--ink); }
+.q-more { display: flex; gap: 22px; margin-top: 18px; }
+
+/* --- The answer: the period, big, and the story -------------------------------- */
+.a { cursor: default; }
+.a-kicker { margin: 0 0 4px; font-size: 15px; color: var(--ink-soft); }
+.a-years { font: 500 clamp(36px, 4vw, 52px)/1.1 var(--serif); color: var(--brass); font-variant-numeric: lining-nums; }
+.a-when { margin: 24px 0 0; padding-top: 16px; border-top: 1px solid var(--paper-3); font: 600 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); max-width: 32em; }
+.a-story { font: 17px/1.6 var(--serif); margin: 6px 0 6px; max-width: 32em; }
+.a-source { font-size: 13px; color: var(--ink-soft); }
+.a-misfit { margin: 14px 0 0; font-size: 14px; color: var(--accent); max-width: 32em; }
+
+.step { animation: rise .5s cubic-bezier(.2,.7,.2,1) both; }
+body.arriving .step { animation-delay: .75s; } /* after Begin: let the globe settle before the question rises */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* The top bar's right end: the quiz's status, then the "?" (help.css) */
+.topbar-right { display: flex; align-items: center; gap: 24px; }
+
+/* Steps */
+.progress { display: flex; gap: 6px; margin: 0 0 28px; }
+.progress span { width: 28px; height: 3px; border-radius: 2px; background: var(--paper-3); transition: background .3s; }
+.progress span.on { background: var(--ink); }
+.step-title { font: 500 clamp(26px, 2.6vw, 34px)/1.15 var(--serif) !important; margin: 0 0 22px !important; text-wrap: balance; }
+.actions { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-top: 28px; }
+.btn { border-radius: 4px; font-weight: 500; padding: 12px 22px; transition: background .2s; }
+.btn-quiet {
+  background: none; border: 0; padding: 2px 0; cursor: pointer; font: inherit; font-size: 15px;
+  color: var(--ink-soft); text-decoration: underline; text-decoration-color: var(--paper-3); text-underline-offset: 4px;
+}
+.btn-quiet:hover { color: var(--ink); text-decoration-color: var(--ink); }
+
+/* Type-what-you-see: one field, with a faint completion and a live reading underneath */
+.typein {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  background: #fffaf0; border: 1px solid var(--paper-3); border-radius: 6px; padding: 5px 5px 5px 18px;
+  transition: border-color .15s;
+}
+.typein:focus-within { border-color: var(--ink-soft); }
+.typein-field { position: relative; flex: 1; min-width: 0; display: grid; }
+.typein-input, .typein-ghost {
+  grid-area: 1 / 1; font: 500 22px var(--serif); letter-spacing: .1em; text-transform: uppercase; padding: 8px 0;
+  white-space: pre; overflow: hidden;
+}
+.typein-input { position: relative; z-index: 1; border: 0; background: transparent; outline: none; min-width: 0; width: 100%; color: var(--ink); }
+.typein-input::placeholder { text-transform: none; letter-spacing: 0; font-style: italic; color: #a3998a; }
+.typein-ghost { pointer-events: none; color: transparent; }
+.typein-ghost .rest { color: #b9ae99; }
+.typein-go {
+  width: 44px; height: 44px; border-radius: 4px; border: 0; cursor: pointer; flex: none;
+  background: var(--ink); color: var(--paper); font-size: 18px; transition: background .2s;
+}
+.typein-go:hover { background: var(--ocean); }
+.live { min-height: 22px; margin: 10px 0 0; font-size: 13px; }
+.live-match { color: var(--ok); font-weight: 600; letter-spacing: .02em; }
+.live-match::before { content: "✓ "; }
+.live-tip { color: var(--ink-soft); }
+kbd {
+  font: 600 11px var(--sans); padding: 1px 6px; border: 1px solid var(--paper-3); border-bottom-width: 2px;
+  border-radius: 4px; background: #fffaf0; color: var(--ink-soft);
+}
+.feedback:empty { display: none; }
+.feedback { margin-top: 8px; }
+.fb-title { margin: 0 0 6px; font-size: 16px; color: var(--ink); }
+.fb-line { margin: 0 0 10px; font-size: 14px; color: var(--ink-soft); }
+.suggest {
+  font: 500 16px var(--serif); letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
+  background: #fffaf0; border: 1px solid var(--paper-3); border-radius: 4px; padding: 3px 10px; margin: 0 2px; color: var(--ink);
+  transition: border-color .15s;
+}
+.suggest:hover { border-color: var(--ink); }
+.suggest.strong { border-color: var(--brass); }
+.shake { animation: shake .4s; }
+/* Sideways only, through `translate`, so it adds to a box the phone layout has placed with `transform` */
+@keyframes shake { 20%, 60% { translate: -5px 0; } 40%, 80% { translate: 5px 0; } }
+
+/* "Your map is in Dutch": the check sits beside the answer, aligned to it */
+.verdict { display: flex; align-items: center; gap: 18px; }
+.verdict-seal {
+  width: 52px; height: 52px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  border: 1.5px solid var(--brass); animation: seal .5s cubic-bezier(.3,1.5,.5,1) both;
+}
+.verdict-seal svg { width: 24px; height: 24px; fill: none; stroke: var(--brass); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 24; stroke-dashoffset: 24; animation: draw .45s .25s ease-out forwards; }
+@keyframes seal { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.verdict-label { font-size: 14px; color: var(--ink-soft); }
+.verdict-lang { font: 500 clamp(30px, 3vw, 40px)/1.1 var(--serif); }
+.pick-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.pill {
+  cursor: pointer; font: inherit; color: inherit; background: #fffaf0; border: 1px solid var(--paper-3);
+  border-radius: 6px; padding: 10px 16px; transition: border-color .15s;
+}
+.pill { font: 500 17px var(--serif); }
+.pill span { font: 13px var(--sans); color: var(--ink-soft); margin-left: 8px; }
+.pill:hover { border-color: var(--ink-soft); }
+
+/* Map kind and size */
+.segmented { display: inline-flex; gap: 4px; margin: 0 0 4px; }
+.segmented button {
+  display: inline-flex; align-items: center; gap: 8px; border: 1px solid transparent; background: transparent; cursor: pointer;
+  font: 500 14px var(--sans); color: var(--ink-soft); padding: 8px 14px; border-radius: 4px; transition: color .2s, border-color .2s, background .2s;
+}
+.segmented svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.segmented button:hover { color: var(--ink); }
+.segmented button[aria-checked="true"] { color: var(--ink); background: #fffaf0; border-color: var(--paper-3); }
+.scene { height: 230px; margin: 4px 0 0; }
+.scene canvas { width: 100%; height: 100%; display: block; }
+.size-readout { display: flex; align-items: baseline; gap: 16px; margin: 6px 0 4px; }
+.size-cm { font: 500 44px/1 var(--serif); font-variant-numeric: tabular-nums; }
+.size-cm small { font: 500 17px var(--serif); color: var(--ink-soft); margin-left: 3px; }
+.size-name { font: 500 17px var(--serif); }
+.size-hint { font-size: 13px; color: var(--ink-soft); }
+.slider { display: block; margin-top: 14px; }
+.slider-label { display: none; }
+.slider input {
+  --fill: 50%;
+  -webkit-appearance: none; appearance: none; width: 100%; height: 3px; border-radius: 2px; cursor: pointer;
+  background: linear-gradient(90deg, var(--ink) var(--fill), var(--paper-3) var(--fill));
+}
+.slider input::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  background: #fffaf0; border: 1.5px solid var(--ink); transition: transform .15s;
+}
+.slider input::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fffaf0; border: 1.5px solid var(--ink); }
+.slider input:active::-webkit-slider-thumb { transform: scale(1.15); }
+
+/* Cross-fades between screens; the globe glides between its positions */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .4s; }
+/* The globe moves itself (globe.js), so the page cross-fade leaves it alone: no old snapshot, no fade */
+::view-transition-old(globe) { display: none; }
+::view-transition-new(globe), ::view-transition-group(globe) { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .step, .hero > *, .verdict-seal { animation: none; }
+  .look-body, .look-inner p, .look-icon { transition: none; }
+  .verdict-seal svg { animation: none; stroke-dashoffset: 0; }
+  .odometer .strip { transition: none; }
+}
+
+/* --- "Reading the chart": the info button beside the range opens a legend ------------ */
+body.mode-result .panel { max-width: none; }
+/* The verdict sits midway between the globe and the legend (equal flexible gaps either side), the
+   legend at the chart's right edge; the verdict keeps its place whether the legend shows or not */
+.vd-panel { display: grid; grid-template-columns: minmax(32px, 1fr) max-content minmax(32px, 1fr) minmax(0, 480px); align-items: start; }
+.vd-main { grid-column: 2; }
+.vd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* The button: a small circled i after the range */
+.vd-info-btn {
+  display: inline-grid; place-items: center; width: 20px; height: 20px; margin-left: 10px; padding: 0; vertical-align: 2px;
+  border: 1.2px solid var(--ink-soft); border-radius: 50%; background: none; color: var(--ink-soft); cursor: pointer;
+  font: italic 600 13px/1 var(--serif); transition: background .2s, color .2s, border-color .2s;
+}
+.vd-info-btn:hover, .vd-info-btn:focus-visible { border-color: var(--ink); color: var(--ink); outline: none; }
+.vd-info-btn:focus-visible { box-shadow: 0 0 0 3px rgba(176,138,62,.35); }
+.vd-panel.info-open .vd-info-btn { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+
+/* The panel: an open legend beside the answer, no frame, a hairline to its left */
+.vd-info {
+  grid-column: 4; grid-row: 1; position: relative; padding: 2px 0 2px 24px;
+  opacity: 0; transform: translateX(10px); visibility: hidden; transition: opacity .35s ease, transform .35s ease, visibility .35s;
+}
+/* The hairline (drawn, not a border, so the entrance can draw it downward) */
+.vd-info::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--paper-3); transform-origin: top; }
+.vd-panel.info-open .vd-info { opacity: 1; transform: none; visibility: visible; }
+.vd-info-title { margin: 0 0 8px; font: 600 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.vd-info-item { display: grid; grid-template-columns: 26px 1fr; column-gap: 14px; padding: 5px 0; cursor: default;
+  opacity: 0; transform: translateY(4px); transition: opacity .4s ease, transform .4s ease; }
+.vd-panel.info-open .vd-info-item { opacity: 1; transform: none; }
+.vd-panel.info-open .vd-info-item:nth-of-type(2) { transition-delay: .06s; }
+.vd-panel.info-open .vd-info-item:nth-of-type(3) { transition-delay: .12s; }
+.vd-panel.info-open .vd-info-item:nth-of-type(4) { transition-delay: .18s; }
+.vd-sw { width: 26px; height: 14px; margin-top: 3px; }
+.vd-info-item p { margin: 0; font: 14px/1.38 var(--serif); color: var(--ink-soft); }
+.vd-info-item .vd-info-k { margin-bottom: 2px; font: 600 10.5px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--ink); }
+.vd-info-item .vd-info-k.brass { color: var(--brass); }
+.vd-info-k b { margin-left: 6px; font: 15px var(--serif); letter-spacing: 0; text-transform: none; color: var(--ink); white-space: nowrap; display: inline-block; }
+/* The entrance at the end of the result animation (app.js revealInfo; delays match LEGEND_STEP):
+   the hairline draws down, the title follows, then each line rises in turn while its drawing wipes
+   in from the left. Slower and calmer than the button's toggle. */
+.vd-panel.info-reveal .vd-info { transform: none; transition: opacity .5s ease, visibility 0s; }
+.vd-panel.info-reveal .vd-info::before { animation: vd-line-draw .9s cubic-bezier(.65, 0, .35, 1) both; }
+.vd-panel.info-reveal .vd-info-title { animation: vd-rise .7s cubic-bezier(.22, 1, .36, 1) .15s both; }
+.vd-panel.info-reveal .vd-info-item { transition: none; animation: vd-rise .8s cubic-bezier(.22, 1, .36, 1) both; }
+.vd-panel.info-reveal .vd-sw { animation: vd-wipe .9s cubic-bezier(.65, 0, .35, 1) both; }
+/* Each line's delay comes from app.js (--reveal-at, the same LEGEND_STEP times that light its part of the
+   chart). Not :nth-of-type: the title row is a div too, which shifted every line and left the last undelayed */
+.vd-panel.info-reveal .vd-info-item, .vd-panel.info-reveal .vd-info-item .vd-sw { animation-delay: var(--reveal-at, 0ms); }
+@keyframes vd-line-draw { from { transform: scaleY(0); } }
+@keyframes vd-rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes vd-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* While the legend introduces each part, the chart answers more slowly than on hover */
+.vd-line { transition: opacity .2s, stroke-width .2s; }
+.vd.emph-slow .vd-band, .vd.emph-slow .vd-agree-fill, .vd.emph-slow .vd-area-hi { transition: fill-opacity .6s ease; }
+.vd.emph-slow .vd-line { transition: opacity .2s, stroke-width .6s ease; }
+.vd-area-hi { transition: opacity .2s, fill-opacity .2s; }
+.vd.emph-slow.emph-agree .vd-agree-label { animation: vd-fade-in .5s ease .55s both; } /* its months, once the column has opened */
+@keyframes vd-fade-in { from { opacity: 0; } }
+
+/* Narrower windows keep the legend beside the verdict (it wraps more); only phones stack it */
+@media (max-width: 1100px) { .vp-wide .vd-panel { grid-template-columns: 24px max-content minmax(24px, 1fr) minmax(0, 480px); } .vd-info { padding-left: 20px; } }
+
+/* The agreement column shows only while the panel is open */
+.vd-agree-col, .vd-agree-axis, .vd-row .bar-agree { transition: opacity .35s ease; }
+.vd:not(.show-agree) .vd-agree-col, .vd:not(.show-agree) .vd-agree-axis, .vd:not(.show-agree) .vd-row .bar-agree { opacity: 0; }
+
+/* Hovering a line of the legend lights its part of the chart */
+.vd-band { transition: fill-opacity .2s; }
+.vd.emph-band .vd-band { fill-opacity: .24; }
+.vd.emph-curve .vd-line { stroke-width: 2.6; }
+.vd.emph-curve .vd-area-hi { fill-opacity: .6; }
+.vd-agree-fill { transition: fill-opacity .2s; }
+.vd.emph-agree .vd-agree-fill { fill-opacity: .12; }
+
+/* ===========================================================================
+   Small screens. viewport.js picks one layout per window (classes on <html>):
+   vp-stacked  phones and upright tablets: one column, the globe on top, the question under it
+   vp-short    a phone on its side: globe left, question right
+   vp-compact  the evidence timeline is a short strip that opens as a sheet
+   Every screen fits the window: the globe is the part that gives (it takes whatever height the
+   question leaves), and nothing scrolls but the rows of the timeline.
+   =========================================================================== */
+
+/* Pieces that exist only for sheets */
+.tl-catcher { position: fixed; inset: 0; z-index: 19; }
+.vd-info-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.vd-info-done { display: none; }
+.st-short { display: none; }
+
+/* --- Top bar ------------------------------------------------------------------- */
+.vp-stacked .topbar, .vp-short .topbar { height: 52px; padding: 0 20px; gap: 12px; border-bottom-color: transparent; }
+.vp-stacked .brand, .vp-short .brand { font-size: 19px; }
+.vp-stacked .topbar-right, .vp-short .topbar-right { gap: 16px; }
+.vp-stacked .status, .vp-short .status { white-space: nowrap; font-size: 13px; font-variant-numeric: tabular-nums; }
+@media (max-width: 370px) {
+  .st-long { display: none; } .st-short { display: inline; }
+  .vp-stacked .topbar { padding: 0 16px; }
+  .vp-stacked .brand { font-size: 17px; }
+  .vp-stacked .topbar-right { gap: 12px; }
+}
+
+/* --- Landing --------------------------------------------------------------------- */
+.landing { padding-left: var(--safe-l); padding-right: var(--safe-r); }
+body.mode-landing .landing { padding-top: calc(var(--safe-t) + max(6vh, 36px)); }
+.vp-stacked body.mode-landing .landing { padding-top: calc(var(--safe-t) + max(7vh, 32px)); }
+.vp-stacked .hero-brand { margin-bottom: 3.2vh; }
+.vp-stacked .hero-title { font-size: clamp(30px, 8.4vw, 50px); }
+.vp-stacked .odometer { font-size: clamp(42px, 11vw, 68px); margin: 2.2vh 0 2.8vh; }
+.vp-stacked .btn-begin { padding: 16px 24px 16px 28px; font-size: 16px; }
+@media (max-height: 600px) { .vp-stacked .hero-brand { margin-bottom: 2vh; } .vp-stacked .odometer { margin: 1.4vh 0 2vh; } }
+/* On its side: the words on the left, the globe rising on the right */
+.vp-short body.mode-landing .landing { justify-content: flex-start; align-items: center; padding: var(--safe-t) 0 var(--safe-b) calc(var(--safe-l) + 6vw); }
+.vp-short .hero { text-align: left; padding: 0; max-width: 50vw; }
+.vp-short .hero-brand { margin-bottom: 14px; }
+.vp-short .hero-title { font-size: clamp(26px, 4.4vw, 40px); }
+.vp-short .hero-title br { display: none; }
+.vp-short .odometer { justify-content: flex-start; font-size: clamp(36px, 6vw, 54px); margin: 10px 0 18px; }
+
+/* --- Stacked: setup and clues ----------------------------------------------------- */
+.vp-stacked body.mode-setup .layout, .vp-stacked body.mode-quiz:not(.mode-result) .layout {
+  display: flex; flex-direction: column; align-items: stretch; gap: 10px; height: auto; min-height: 0; padding: 0 20px 18px;
+}
+.vp-stacked body.mode-setup .globe-wrap, .vp-stacked body.mode-quiz:not(.mode-result) .globe-wrap {
+  flex: 1 1 0; min-height: 150px; height: auto; max-height: none;
+}
+.vp-stacked body.mode-setup .panel, .vp-stacked body.mode-quiz:not(.mode-result) .panel {
+  flex: 0 1 auto; min-height: 0; width: 100%; max-width: 540px; margin: 0 auto; align-self: auto; max-height: none;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 0;
+}
+.vp-stacked .panel::-webkit-scrollbar, .vp-short .panel::-webkit-scrollbar { display: none; }
+/* Upright tablets keep the full ten-row timeline under the question */
+.vp-stacked:not(.vp-compact) .timeline-wrap { margin: 0 28px 14px; }
+
+/* Type and spacing for the one column: everything within a thumb's reach, nothing to read twice */
+.vp-stacked .progress { margin-bottom: 14px; }
+.vp-stacked .step-title { font-size: clamp(24px, 6.6vw, 32px) !important; margin: 0 0 14px !important; }
+.vp-stacked .q-context { margin: 0 0 6px; font-size: 11px; }
+.vp-stacked .q-title { font-size: clamp(21px, 6.1vw, 30px) !important; line-height: 1.2 !important; margin: 0 0 8px !important; }
+.vp-stacked .look-toggle { font-size: 14px; padding: 6px 0; }
+.vp-stacked .look-inner p { margin-top: 6px; padding: 10px 14px; font-size: 15px; line-height: 1.5; max-width: none; }
+.vp-stacked .yesno { margin-top: 14px; gap: 10px; }
+.vp-stacked .yn { height: 56px; }
+.vp-stacked .q-more { margin-top: 4px; gap: 28px; }
+.vp-stacked .q-more .btn-quiet, .vp-stacked .actions .btn-quiet { padding: 12px 2px; }
+.vp-stacked .a-kicker { font-size: 13px; }
+.vp-stacked .a-years { font-size: clamp(30px, 8.6vw, 44px); }
+.vp-stacked .a-when { margin-top: 12px; padding-top: 10px; }
+.vp-stacked .a-story { font-size: 15.5px; line-height: 1.5; margin: 4px 0; max-width: none; }
+.vp-stacked .a-source { font-size: 12.5px; }
+.vp-stacked .a-misfit { margin-top: 8px; font-size: 13px; }
+/* The main button of a step runs the width of the column, the quiet one beside it */
+.vp-stacked .panel .actions { flex-wrap: nowrap; gap: 20px; margin-top: 16px; }
+.vp-stacked .panel .actions .btn { flex: 1; height: 54px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; }
+.vp-stacked .typein-input, .vp-stacked .typein-ghost { font-size: 20px; }
+.vp-stacked .live { margin-top: 8px; min-height: 20px; }
+.vp-stacked .verdict-lang { font-size: 32px; }
+/* Phones on the smallest screens: tighter still */
+@media (max-height: 640px) {
+  .vp-stacked .q-title { font-size: 21px !important; }
+  .vp-stacked .yn { height: 50px; }
+  .vp-stacked .yesno { margin-top: 10px; }
+  .vp-stacked .a-years { font-size: 28px; }
+  .vp-stacked .a-story { font-size: 14.5px; line-height: 1.45; }
+  .vp-stacked .panel .actions { margin-top: 10px; }
+  .vp-stacked .panel .actions .btn { height: 48px; }
+}
+
+/* The size step: the drawing of the map beside a mug is the picture, so the globe folds away */
+.vp-stacked body.mode-setup.step-size .globe-wrap { flex: 0 0 0; min-height: 0 !important; }
+.vp-stacked body.step-size .layout { gap: 0; }
+.vp-stacked body.step-size .panel { flex: 1 1 auto; display: flex; flex-direction: column; }
+.vp-stacked body.step-size .panel > .step { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.vp-stacked body.step-size .scene { flex: 1 1 0; min-height: 150px; max-height: 420px; height: auto; margin-top: 8px; }
+.vp-stacked .segmented, .vp-short .segmented { display: flex; width: 100%; }
+.vp-stacked .segmented button, .vp-short .segmented button { flex: 1; justify-content: center; height: 44px; padding: 0 8px; }
+.vp-stacked .size-readout { margin: 4px 0 0; }
+.vp-stacked .slider { margin-top: 10px; padding: 10px 0; }
+.vp-touch .slider input::-webkit-slider-thumb { width: 28px; height: 28px; }
+.vp-touch .slider input::-moz-range-thumb { width: 26px; height: 26px; }
+/* Phones (also on their side): the drawing needs no text gutter, so it runs to 12 px from the screen's edges */
+.vp-stacked body.step-size .scene { margin-left: -8px; margin-right: -8px; }
+/* ...so the step's column must not be a scroll container here: the step always fits (the picture is what gives),
+   and an overflow-x of 'auto' would let the 8 px overhang be swiped sideways and clip the drawing at the column */
+.vp-stacked body.step-size .panel { overflow: visible; }
+/* The label's words fade over on their own layer, kept for the whole step, so nothing of the old words is left painted */
+.vp-stacked .size-text, .vp-stacked .size-cm, .vp-short .size-text, .vp-short .size-cm { will-change: opacity, transform; }
+/* The hint keeps room for two lines, so nothing above or below it moves while sliding */
+.vp-stacked .size-hint, .vp-short .size-hint { min-height: 3em; }
+/* The selected kind's pill shows only where it glides (phones) */
+.seg-pill { display: none; }
+.vp-stacked body.step-size .layout, .vp-short body.step-size .layout { position: relative; }
+/* The selected kind: one piece that glides from segment to segment (the same look as a selected segment) */
+.vp-stacked .segmented, .vp-short .segmented { position: relative; }
+.vp-stacked .seg-pill, .vp-short .seg-pill {
+  display: block; position: absolute; top: 0; left: 0; bottom: 0; width: calc((100% - 8px) / 3); border-radius: 4px;
+  background: #fffaf0; border: 1px solid var(--paper-3); pointer-events: none;
+  transform: translateX(calc(var(--i, 0) * (100% + 4px))); transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+}
+.vp-stacked .segmented button, .vp-short .segmented button { position: relative; z-index: 1; }
+.vp-stacked .segmented button[aria-checked="true"], .vp-short .segmented button[aria-checked="true"] { background: transparent; border-color: transparent; }
+
+/* --- Compact timeline: a strip at the bottom edge that unfolds into a sheet (timeline-sheet.js) ---- */
+.vp-compact { --tl-c: 106px; }
+.vp-short.vp-compact { --tl-c: 80px; }
+.vp-compact body.mode-quiz:not(.mode-result) .layout { padding-bottom: calc(var(--tl-c) + 12px); }
+.vp-compact body.mode-quiz:not(.mode-result) .timeline-wrap {
+  position: fixed; z-index: 20; margin: 0; padding: 0;
+  left: calc(var(--safe-l) + 14px); right: calc(var(--safe-r) + 14px); bottom: calc(var(--safe-b) + 4px);
+  height: var(--tl-c); cursor: pointer; outline: none; touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+/* Open, the rows scroll natively: Safari lets a scroll box move only when no ancestor says touch-action: none */
+.vp-compact body.mode-quiz:not(.mode-result) .timeline-wrap.tlc-open { cursor: default; touch-action: auto; }
+/* The laptop's layers step aside; the sheet draws the strip */
+.vp-compact body.mode-quiz:not(.mode-result) .timeline-wrap > .tl-scroll,
+.vp-compact body.mode-quiz:not(.mode-result) .timeline-wrap > .tl-foot,
+.vp-compact body.mode-quiz:not(.mode-result) .timeline-wrap > .tl-head { display: none; }
+.tlc { display: none; }
+.vp-compact body.mode-quiz:not(.mode-result) .tlc { display: block; position: absolute; inset: 0; }
+.tlc > * { position: absolute; }
+/* Its paper: plain under the strip, a raised sheet when open (timeline-sheet.js sets top and shadow) */
+.tlc-paper {
+  left: calc(-14px - var(--safe-l)); right: calc(-14px - var(--safe-r)); bottom: calc(-4px - var(--safe-b)); top: -6px;
+  background: var(--paper); border-top: 1px solid transparent; border-radius: 18px 18px 0 0;
+}
+.timeline-wrap:focus-visible .tlc-paper { border-top-color: var(--brass) !important; }
+.tlc-svg { left: 0; overflow: visible; pointer-events: none; }
+.tlc-rows { left: 0; right: 0; overflow: hidden; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; }
+.tlc-rows::-webkit-scrollbar { display: none; }
+.tlc-rows.is-scrolling { overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.tlc-rows.more-below { -webkit-mask-image: linear-gradient(to top, transparent, #000 16px); mask-image: linear-gradient(to top, transparent, #000 16px); }
+.tlc-rows.more-above { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px); mask-image: linear-gradient(to bottom, transparent, #000 16px); }
+.tlc-rows.more-above.more-below { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.tlc-rowsvg { display: block; overflow: visible; }
+.tlc-hits { position: absolute; left: 0; right: 0; top: 0; }
+.tlc-hit { position: absolute; left: calc(-14px - var(--safe-l)); right: calc(-14px - var(--safe-r)); padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tlc-hit:focus-visible { outline: 2px solid var(--brass); outline-offset: -2px; }
+/* The header: grabber, title and a round close button */
+.tlc-head { left: 0; right: 0; height: 54px; display: flex; align-items: center; justify-content: space-between; padding-left: 6px; touch-action: none; cursor: grab; }
+.tlc-grab { position: absolute; left: 50%; top: -4px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--paper-3); }
+.tlc-title { font: 600 11px var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.tlc-close { width: 44px; height: 44px; margin-right: -4px; padding: 9px; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tlc-close svg { display: block; width: 26px; height: 26px; }
+.tlc-close circle { fill: var(--ocean); fill-opacity: .05; transition: fill-opacity .15s; }
+.tlc-close path { fill: none; stroke: var(--ocean); stroke-opacity: .6; stroke-width: 1.5; stroke-linecap: round; }
+.tlc-close:active circle { fill-opacity: .12; }
+.tlc-close:focus-visible { outline: none; }
+.tlc-close:focus-visible circle { stroke: var(--brass); stroke-width: 2; }
+/* The chart: the evidence timeline's own marks (see .tl-body above) */
+.tlc .row-track { stroke: var(--paper-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.tlc .bar { fill: var(--ink); fill-opacity: .55; }
+.tlc .bar.on { fill: var(--ocean); fill-opacity: .9; }
+.tlc .bar-hi { fill: var(--brass); }
+.tlc .row-hit { fill: transparent; }
+.tlc .row-hit.on { fill: rgba(176, 138, 62, .14); }
+.tlc .row-mark { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tlc .row-mark.yes { stroke: var(--ok); }
+.tlc .row-mark.no { stroke: var(--accent); }
+.tlc .tl-axis .domain, .tlc .tl-axis line { stroke: var(--border); fill: none; }
+.tlc .tl-axis text { text-anchor: middle; }
+/* An open row's line: the claim in the sheet's serif, the years as the laptop's hover card gives them */
+.tlc .tlc-line-paper { fill: var(--paper); }
+.tlc .row-claim { font: 14px var(--serif); fill: var(--ink); }
+.tlc .row-range { font: 13px var(--sans); fill: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+/* --- Stacked result: the globe medallion beside the year, the chart under it, the button at the bottom */
+.vp-stacked { --act-h: 66px; }
+.vp-stacked body.mode-result { grid-template-rows: auto auto minmax(0, 1fr); }
+.vp-stacked body.mode-quiz.mode-result .layout {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center;
+  width: 100%; max-width: 620px; height: auto; margin: 0 auto; padding: 2px 20px 8px;
+}
+.vp-stacked body.mode-quiz.mode-result .globe-wrap { width: clamp(96px, 27vw, 170px); height: clamp(96px, 27vw, 170px); min-height: 0; max-height: none; }
+.vp-stacked body.mode-result .panel { padding: 0; align-self: center; max-width: none; overflow: visible; }
+.vp-stacked .vd-panel { display: block; }
+.vp-stacked .vd-panel .a-kicker { font-size: 13px; line-height: 1.35; }
+.vp-stacked .vd-years { font-size: clamp(40px, 12vw, 60px); }
+.vp-stacked .vd-range { margin-top: 4px; font-size: 15px; }
+.vp-stacked .vd-range-k { display: block; margin: 0 0 1px; }
+.vp-stacked .vd-panel .a-misfit { margin-top: 6px; font-size: 12.5px; }
+.vp-stacked body.mode-result .timeline-wrap { height: auto; margin: 6px 14px calc(var(--act-h) + 8px); }
+.vp-stacked .vd-main .actions {
+  position: fixed; z-index: 15; margin: 0; flex-wrap: nowrap; gap: 20px;
+  left: calc(var(--safe-l) + 20px); right: calc(var(--safe-r) + 20px); bottom: calc(var(--safe-b) + 10px);
+}
+@media (min-width: 600px) { .vp-stacked .vd-main .actions { left: 50%; right: auto; width: 560px; margin-left: -280px; } }
+.vp-stacked .vd-main .actions .btn { flex: 1; height: 54px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; }
+.vp-stacked .vd-main .actions .btn-quiet { padding: 12px 2px; }
+.vp-stacked .vd-info-btn, .vp-short .vd-info-btn { width: 26px; height: 26px; margin-left: 10px; font-size: 14px; vertical-align: 0; }
+
+/* "Reading the chart" as a sheet from the bottom edge, over the buttons, clear of the curve */
+.vp-stacked .vd-info, .vp-short .vd-info {
+  position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; max-width: 620px; margin: 0 auto;
+  padding: 22px calc(22px + var(--safe-r)) calc(16px + var(--safe-b)) calc(22px + var(--safe-l));
+  background: var(--paper); border-top: 1px solid var(--paper-3); border-radius: 18px 18px 0 0;
+  box-shadow: 0 -18px 44px -26px rgba(31, 42, 55, .5);
+  opacity: 1; transform: translateY(105%); visibility: hidden;
+  transition: transform .42s cubic-bezier(.2, .7, .2, 1), visibility 0s linear .42s;
+}
+.vp-stacked .vd-panel.info-open .vd-info, .vp-short .vd-panel.info-open .vd-info { transform: none; visibility: visible; transition: transform .42s cubic-bezier(.2, .7, .2, 1), visibility 0s; }
+.vp-stacked .vd-info::before, .vp-short .vd-info::before { left: 50%; top: 8px; bottom: auto; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--paper-3); transform: none; }
+.vp-stacked .vd-info-done, .vp-short .vd-info-done { display: block; padding: 6px 0 6px 16px; border: 0; background: none; cursor: pointer; font: 600 15px var(--sans); color: var(--ink); }
+.vp-stacked .vd-info-item, .vp-short .vd-info-item { padding: 7px 0; }
+.vp-stacked .vd-info-item p, .vp-short .vd-info-item p { font-size: 14.5px; }
+
+/* --- On its side (phone landscape): two columns, a slim timeline under them -------------- */
+.vp-short .topbar { height: 44px; }
+.vp-short body.mode-setup .layout, .vp-short body.mode-quiz:not(.mode-result) .layout {
+  display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.15fr); gap: 28px; height: auto; min-height: 0; /* the globe is as tall as it is wide: the words get the rest */
+  padding: 0 24px 10px; align-items: stretch;
+}
+.vp-short body.mode-setup .globe-wrap, .vp-short body.mode-quiz:not(.mode-result) .globe-wrap { height: auto; min-height: 0; max-height: none; }
+.vp-short body.mode-setup .panel, .vp-short body.mode-quiz:not(.mode-result) .panel {
+  align-self: center; max-height: 100%; max-width: 480px; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; padding: 0;
+}
+.vp-short .progress { margin-bottom: 10px; }
+.vp-short .step-title { font-size: 22px !important; margin: 0 0 10px !important; }
+.vp-short .q-context { margin: 0 0 4px; font-size: 10.5px; }
+.vp-short .q-title { font-size: 20px !important; line-height: 1.2 !important; margin: 0 0 4px !important; }
+.vp-short .look-toggle { font-size: 13px; padding: 4px 0; }
+.vp-short .look-inner p { margin-top: 4px; padding: 8px 12px; font-size: 14px; line-height: 1.45; }
+.vp-short .yesno { margin-top: 10px; }
+.vp-short .yn { height: 46px; font-size: 18px; }
+.vp-short .q-more { margin-top: 2px; }
+.vp-short .q-more .btn-quiet, .vp-short .actions .btn-quiet { padding: 8px 2px; }
+.vp-short .a-kicker { font-size: 12px; margin-bottom: 0; }
+.vp-short .a-years { font-size: 28px; }
+.vp-short .a-when { margin-top: 8px; padding-top: 6px; }
+.vp-short .a-story { font-size: 14px; line-height: 1.45; margin: 2px 0; }
+.vp-short .a-source { font-size: 12px; }
+.vp-short .panel .actions { margin-top: 10px; }
+.vp-short .panel .actions .btn { height: 44px; padding: 0 22px; }
+.vp-short .typein-input, .vp-short .typein-ghost { font-size: 18px; padding: 4px 0; }
+.vp-short .typein-go { width: 38px; height: 38px; }
+/* The size step: the globe folds away and the step lays out its drawing beside its controls */
+.vp-short body.step-size .layout { grid-template-columns: 0 minmax(0, 1fr); gap: 0; }
+.vp-short body.step-size .panel { max-width: none; width: 100%; height: 100%; overflow: hidden; }
+.vp-short body.step-size .panel > .step {
+  display: grid; height: 100%; column-gap: 28px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto 1fr auto; align-content: start;
+}
+.vp-short body.step-size .step > * { grid-column: 2; }
+.vp-short body.step-size .step > .scene { grid-column: 1; grid-row: 1 / -1; height: 100%; margin: 0; }
+.vp-short body.step-size .size-readout { margin: 6px 0 0; }
+.vp-short body.step-size .size-cm { font-size: 34px; }
+.vp-short body.step-size .slider { margin-top: 4px; padding: 8px 0; }
+.vp-short body.step-size .actions { align-self: end; }
+/* The result: the medallion, the year and the buttons on the left; the chart takes the right */
+.vp-short body.mode-result { grid-template-columns: minmax(230px, .36fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+.vp-short body.mode-result .topbar { grid-column: 1 / -1; }
+.vp-short body.mode-quiz.mode-result .layout {
+  grid-column: 1; grid-row: 2; display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  gap: 10px; height: auto; min-height: 0; padding: 0 0 12px 24px;
+}
+.vp-short body.mode-quiz.mode-result .globe-wrap { width: 92px; height: 92px; min-height: 0; flex: none; }
+.vp-short body.mode-result .panel { padding: 0; max-width: none; overflow: visible; align-self: stretch; }
+.vp-short .vd-panel { display: block; }
+.vp-short .vd-panel .a-kicker { font-size: 12px; }
+.vp-short .vd-years { font-size: 40px; }
+.vp-short .vd-range { font-size: 14px; margin-top: 2px; }
+.vp-short .vd-panel .actions { margin-top: 12px; gap: 18px; }
+.vp-short .vd-panel .actions .btn { height: 44px; padding: 0 18px; }
+.vp-short body.mode-result .timeline-wrap { grid-column: 2; grid-row: 2; height: auto; margin: 0 18px 10px 12px; }
+
+/* --- Touch: no hover to wait for; a press answers at once ------------------------------ */
+.vp-touch .yn.yes:hover { background: var(--ink); }
+.vp-touch .yn.no:hover { border-color: var(--paper-3); }
+.vp-touch .yn.yes:active { background: var(--ocean); }
+.vp-touch .yn.no:active { border-color: var(--ink); }
+.vp-touch .btn:hover, .vp-touch .typein-go:hover, .vp-touch .btn-begin:hover { background: var(--ink); }
+.vp-touch .btn:active, .vp-touch .typein-go:active, .vp-touch .btn-begin:active { background: var(--ocean); }
+.vp-touch .btn-begin:hover .arrow { transform: none; }
+.vp-touch .btn-quiet:hover { color: var(--ink-soft); text-decoration-color: var(--paper-3); }
+.vp-touch .btn-quiet:active { color: var(--ink); }
+.vp-touch .tl-tip { display: none; }
+
+/* --- Fine-tuning for the smallest phones ------------------------------------------------ */
+/* "Where are we?" reads to the left of the loupe: a phone's column has no room right of the lens */
+.vp-stacked .where, .vp-short .where { flex-direction: row-reverse; left: auto; right: calc(50% - var(--lens-r) * .7071 - 19px); }
+.vp-stacked .where-label, .vp-short .where-label { padding: 2px 10px; border-radius: 999px; }
+/* An answer's story matters more than the picture it follows: the globe may give more room */
+.vp-stacked body.mode-quiz:has(.panel .a) .globe-wrap { min-height: 96px; }
+@media (max-height: 700px) {
+  .vp-stacked.vp-compact { --tl-c: 92px; }
+  .vp-stacked body.mode-setup .globe-wrap, .vp-stacked body.mode-quiz:not(.mode-result) .globe-wrap { min-height: 120px; }
+}
+@media (max-height: 600px) {
+  .vp-stacked.vp-compact { --tl-c: 80px; }
+  .vp-stacked body.mode-setup .globe-wrap, .vp-stacked body.mode-quiz:not(.mode-result) .globe-wrap { min-height: 96px; }
+  .vp-stacked body.mode-quiz:has(.panel .a) .globe-wrap { min-height: 72px; }
+  .vp-stacked .topbar { height: 46px; }
+  .vp-stacked .q-more .btn-quiet, .vp-stacked .actions .btn-quiet { padding: 8px 2px; }
+  .vp-stacked .look-inner p { font-size: 14px; }
+}
+@media (max-height: 600px) {
+  .vp-stacked .q-title { font-size: 19px !important; }
+  .vp-stacked .a-years { font-size: 25px; }
+  .vp-stacked .a-story { font-size: 14px; line-height: 1.42; }
+  .vp-stacked .a-when { margin-top: 8px; padding-top: 6px; }
+  .vp-stacked .yn { height: 46px; }
+  .vp-stacked .panel .actions .btn { height: 46px; }
+  .vp-stacked body.mode-quiz:has(.look.open) .globe-wrap { min-height: 72px; }
+  .vp-stacked body.step-size .scene { min-height: 96px; }
+  .vp-stacked .step-title { font-size: 22px !important; margin-bottom: 10px !important; }
+  .vp-stacked .progress { margin-bottom: 10px; }
+  .vp-stacked .segmented button { height: 38px; }
+  .vp-stacked .size-cm { font-size: 34px; }
+}
+
+/* --- What gives when a screen is short: first the globe (down to a floor), then the words.
+   The buttons never leave the screen: the question or story scrolls above them instead. */
+body.mode-setup .panel, body.mode-quiz:not(.mode-result) .panel { display: flex; flex-direction: column; }
+.vp-wide body.mode-quiz:not(.mode-result) .panel { overflow: hidden; }
+.panel > .q, .panel > .a { display: flex; flex-direction: column; flex: 0 1 auto; }
+.panel > .a, .vp-stacked .panel > .q, .vp-short .panel > .q { min-height: 0; } /* wide windows keep .q's room for the hint */
+.q-body, .a-body {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--paper-3) transparent;
+}
+.q > .yesno, .q > .q-more, .a > .actions { flex: none; }
+@media (max-height: 700px) {
+  .vp-stacked body.mode-quiz:has(.look.open) .globe-wrap { min-height: 84px; }
+  .vp-stacked body.mode-quiz:has(.panel .a) .globe-wrap { min-height: 84px; }
+  .vp-stacked body.step-size .scene { min-height: 100px; }
+}
+
+/* A phone on its side: the rows of the strip need the bottom of the screen to themselves */
+.vp-short.vp-compact body.mode-quiz:not(.mode-result) .layout { padding-bottom: calc(var(--tl-c) + 8px); }
+.vp-short .vd-panel .actions { flex-wrap: nowrap; }
+
+/* Upright tablets: the one column, at desktop sizes */
+@media (min-width: 600px) {
+  .vp-stacked body.mode-setup .panel, .vp-stacked body.mode-quiz:not(.mode-result) .panel { max-width: 600px; }
+  .vp-stacked .q-title { font-size: 30px !important; }
+  .vp-stacked .q-context { font-size: 12px; margin-bottom: 10px; }
+  .vp-stacked .look-toggle { font-size: 15px; }
+  .vp-stacked .look-inner p { font-size: 16px; }
+  .vp-stacked .yn { height: 64px; font-size: 21px; }
+  .vp-stacked .yesno { margin-top: 22px; gap: 12px; }
+  .vp-stacked .a-years { font-size: 46px; }
+  .vp-stacked .a-story { font-size: 17px; line-height: 1.55; }
+  .vp-stacked .step-title { font-size: 34px !important; margin-bottom: 22px !important; }
+  .vp-stacked .panel .actions .btn { height: 60px; }
+  .vp-stacked body.step-size .panel > .step { justify-content: center; }
+  .vp-stacked body.step-size .scene { flex: 0 0 auto; height: min(44vh, 460px); max-height: none; }
+}
+/* On its side, "Reading the chart" slides in over the verdict's column, so the chart it explains stays in view */
+.vp-short .vd-info {
+  left: 0; right: auto; top: calc(var(--safe-t) + 44px); bottom: 0; margin: 0; max-width: none; overflow-y: auto; scrollbar-width: none;
+  width: calc(var(--safe-l) + max(250px, 34vw)); padding: 16px 22px calc(12px + var(--safe-b)) calc(var(--safe-l) + 22px);
+  border-top: 0; border-right: 1px solid var(--paper-3); border-radius: 0 18px 0 0; box-shadow: 18px 0 44px -28px rgba(31, 42, 55, .5);
+  transform: translateX(-105%);
+}
+.vp-short .vd-info::before { display: none; }
+.vp-short .vd-range, .vp-short .vd-panel .actions .btn { white-space: nowrap; }
+
+/* --- Setup steps: the gold category line ------------------------------------------- */
+/* Every setup step leads with the questions' gold category line (.q-context), the step dashes at its right */
+.step-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 14px; }
+.panel .step-top .q-context, .panel .step-top .progress { margin: 0; }
+.vp-stacked .step-top, .vp-short .step-top { margin-bottom: 8px; }
+.step-title.is-swapping { opacity: 0; transition: opacity .18s ease; }
+.step-title { transition: opacity .18s ease; }
+/* "Tab to complete" names a key phones and tablets don't have */
+.vp-touch .live-tip { display: none; }
+/* While the keyboard is up, the home bar is under it: its padding would only waste room */
+.vp-kb body { padding-bottom: 0; }
+
+/* "Where are we?" on the country close-up: the loupe alone, a little smaller while typing */
+body.mode-setup .where.is-shown { opacity: 1; transform: none; pointer-events: auto; }
+body.mode-setup .where-label { display: none; }
+body.mode-setup .where-loupe { transition: transform .3s cubic-bezier(.32, .72, 0, 1), background-color .2s ease; }
+body.setup-typing .where-loupe { transform: scale(.8); }
+
+/* --- The language step on phones and upright tablets (lang-layout.js) ---------------- */
+/* One column set above the middle: the gold line and question, the lens, the answer box. lang-layout.js
+   places each piece (and the lens, through .globe-wrap) and folds them above the keyboard while typing. */
+.vp-stacked body.lang-stage .layout { position: relative; display: block; padding: 0; }
+.vp-stacked body.lang-stage .globe-wrap { position: absolute; flex: none; min-height: 0; max-height: none; }
+.vp-stacked body.lang-stage .panel { position: static; overflow: visible; max-width: none; margin: 0; padding: 0; }
+.vp-stacked body.lang-stage .panel > .step { position: absolute; inset: 0; }
+.vp-stacked body.lang-stage .ask-head,
+.vp-stacked body.lang-stage .typein,
+.vp-stacked body.lang-stage .ask-below { position: absolute; top: 0; left: 0; margin: 0; will-change: transform, opacity; }
+.vp-stacked body.lang-stage .ask-head .step-title { margin: 0 !important; }
+/* Skip sits just under the question, wherever lang-layout.js puts it (above the lens, or beside it over the keyboard) */
+.vp-stacked body.lang-stage .panel .actions { position: absolute; top: 0; left: 0; margin: 0; z-index: 3; will-change: transform, opacity; }
+
+/* --- "Your map is in Dutch" ----------------------------------------------------------- */
+/* Phones: the step dashes add nothing on a small screen (tablets and laptops keep them) */
+.vp-compact .step-top .progress { display: none; }
+/* Grown in place from the question (lang-layout.js confirm): the seal pops and its tick draws as the verdict
+   settles under the lens, about a third of the way into the move, instead of at once */
+.step.is-confirming .verdict-seal { animation-delay: .32s; }
+.step.is-confirming .verdict-seal svg { animation-delay: .57s; }
+/* Phones and upright tablets: the gold line on top, the lens, then the verdict and the buttons under it */
+.vp-stacked body.lang-stage .vtop .step-top { margin: 0; }
+/* A compact Continue, sized to its word beside "Not Dutch?", as on wider screens */
+.vp-stacked .panel .verdict-actions .btn { flex: none; height: 46px; padding: 0 30px; font-size: 15px; }
+.vp-stacked body.lang-stage .vtop,
+.vp-stacked body.lang-stage .vbody,
+.vp-stacked body.lang-stage .panel .actions.verdict-actions {
+  position: absolute; top: 0; left: 0; right: auto; height: auto; margin: 0; z-index: auto; will-change: transform, opacity;
+}
+
+/* --- Phones: from the landing page straight into typing (setup.js) -------------------- */
+/* The landing words lift away in place while the globe rides up with the keyboard */
+.landing.is-leaving {
+  display: flex; position: fixed; inset: 0; z-index: 2; pointer-events: none;
+  justify-content: center; align-items: flex-start; padding-top: calc(var(--safe-t) + max(7vh, 32px));
+  animation: landing-out .3s cubic-bezier(.2, .8, .2, 1) forwards;
+}
+.landing.is-leaving .hero > * { animation: none; }
+@keyframes landing-out { to { opacity: 0; transform: translateY(-14px); } }
+/* The top bar comes in behind the landing words; lang-layout.js draws the question and the box arriving */
+body.arriving-typing .topbar { animation: fade-in .3s .2s both; }
+.vp-stacked body.lang-stage .step.is-arriving { animation: none; }
+@keyframes fade-in { from { opacity: 0; } }
+
+/* --- Phones: the moves between the language step's screens (setup.js) ------------------- */
+/* Feedback under the answer box rises in, and fades before it is cleared */
+.vp-stacked body.lang-stage .feedback:not(:empty) { animation: fb-in .2s .06s cubic-bezier(.2, .8, .2, 1) both; }
+.vp-stacked body.lang-stage .feedback.is-leaving { opacity: 0; transition: opacity .15s ease; }
+@keyframes fb-in { from { opacity: 0; transform: translateY(4px); } }
+/* Copies of the last screen's pieces, fading where they were while the next one is built (ghostOut) */
+.ghost-layer {
+  position: fixed !important; inset: 0 !important; z-index: 30; pointer-events: none;
+  max-width: none !important; max-height: none !important; margin: 0 !important; padding: 0 !important;
+  overflow: visible !important; background: none !important; border: 0 !important; border-radius: 0 !important;
+}
+/* Continue: the lens glides into the desk globe while the desk gathers around it (size-scene.js); the words rise
+   in one after another, top to bottom */
+.step.is-handed-in { animation: none; }
+.step.is-handed-in > :not(.scene) { animation: row-in .3s cubic-bezier(.2, .8, .2, 1) both; }
+.step.is-handed-in > .step-top, .step.is-handed-in > .step-title { animation-delay: .25s; }
+.step.is-handed-in > .segmented { animation-delay: .29s; }
+.step.is-handed-in > .size-readout { animation-delay: .34s; }
+.step.is-handed-in > .slider { animation-delay: .38s; }
+.step.is-handed-in > .actions { animation-delay: .42s; }
+@keyframes row-in { from { opacity: 0; transform: translateY(6px); } }
+/* While the lens glides across a rebuilt screen (setup.js glideLens) the loupe waits for it */
+.globe-wrap.is-gliding .where { opacity: 0 !important; transition: none !important; pointer-events: none; }
+/* Back from the size step: the verdict settles once the lens is nearly home */
+.step.is-returning { animation-delay: .3s; }
+/* Phones on their side: the same compact Continue */
+.vp-short .panel .verdict-actions .btn { flex: none; height: 44px; padding: 0 28px; font-size: 15px; }
+@media (prefers-reduced-motion: reduce) {
+  .landing.is-leaving { animation-duration: .01s; }
+  body.arriving-typing .topbar, .vp-stacked body.lang-stage .feedback:not(:empty) { animation: none; }
+  .step.is-handed-in > * { animation: none; }
+  .seg-pill { transition: none !important; }
+}
+
+/* --- Phones and upright tablets: the question and answer screens (quiz-layout.js) --------------- */
+/* A stage with fixed places: the question on top, the globe in the middle, "What to look for", Yes / No and the
+   quiet row under the thumb. quiz-layout.js places every piece (and the lens, through .globe-wrap). */
+.vp-stacked body.quiz-stage.mode-quiz:not(.mode-result) .layout { position: relative; display: block; height: auto; padding: 0; }
+.vp-stacked body.quiz-stage.mode-quiz:not(.mode-result) .globe-wrap { position: absolute; flex: none; min-height: 0; max-height: none; }
+.vp-stacked body.quiz-stage.mode-quiz:not(.mode-result) .panel { position: static; display: block; overflow: visible; max-width: none; margin: 0; padding: 0; }
+.vp-stacked body.quiz-stage .panel > .step { position: absolute; inset: 0; animation: none; }
+.vp-stacked body.quiz-stage [data-piece] { position: absolute; top: 0; left: 0; margin: 0; will-change: transform, opacity; }
+.quiz-ghosts { position: absolute; inset: 0; pointer-events: none; }
+.quiz-probe { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; }
+.quiz-probe [data-piece] { position: static !important; }
+.qs-head .q-title { margin: 0 !important; }
+.qs-hint .look-inner p { margin: 0; opacity: 1; transform: none; }
+.as-head .a-kicker { margin: 0 0 4px; }
+.as-story { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.as-story::-webkit-scrollbar { display: none; }
+.as-story > :first-child { margin-top: 0; }
+/* Next sits right under the story: a compact button with Back beside it, not a bar across the column */
+.vp-stacked .as .actions { flex-wrap: nowrap; gap: 22px; }
+.vp-stacked .as .actions .btn { flex: none; height: 46px; padding: 0 26px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; }
+@media (max-height: 640px) { .vp-stacked .as .actions .btn { height: 44px; } }
+@media (max-height: 600px) { .vp-stacked .as .actions .btn { height: 42px; padding: 0 22px; } }
+@media (min-width: 600px) { .vp-stacked .as .actions .btn { height: 52px; padding: 0 32px; } }
+/* The timeline steps aside while the hint is open, and comes back with the answer */
+.vp-stacked body.quiz-stage .timeline-wrap { transition: height .42s cubic-bezier(.2, .7, .2, 1), padding-top .42s cubic-bezier(.2, .7, .2, 1), opacity .24s ease .2s, transform .26s cubic-bezier(.2, .8, .2, 1) .2s; }
+.vp-stacked body.quiz-stage.quiz-hint .timeline-wrap, .vp-stacked body.quiz-stage.quiz-tall .timeline-wrap { opacity: 0; transform: translateY(16px); pointer-events: none;
+  transition: height .42s cubic-bezier(.2, .7, .2, 1), padding-top .42s cubic-bezier(.2, .7, .2, 1), opacity .2s ease, transform .22s cubic-bezier(.2, .8, .2, 1); }
+/* The medallion: the loupe fades with its labels */
+.vp-stacked body.quiz-medallion .where { opacity: 0 !important; pointer-events: none; }
+/* Start: the strip slides up from the bottom edge */
+.vp-stacked body.quiz-arriving .timeline-wrap { animation: strip-up .45s cubic-bezier(.2, .8, .2, 1) .45s both; }
+@keyframes strip-up { from { transform: translateY(calc(100% + var(--safe-b) + 24px)); } }
+
+/* Phones and tablets: the loupe alone on the lens rim (no "Where are we?" / "Zoom" words), and long names
+   break between their words instead of running off the screen */
+.vp-stacked .where-label, .vp-short .where-label { display: none; }
+.vp-stacked .q-name, .vp-short .q-name { white-space: normal; }
+
+/* Phones and tablets: the quiz's status stays out of the top bar (the stage shows the question) */
+.vp-stacked .status, .vp-short .status { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .vp-stacked body.quiz-stage .timeline-wrap, .vp-stacked body.quiz-stage.quiz-hint .timeline-wrap, .vp-stacked body.quiz-stage.quiz-tall .timeline-wrap { transition: none; }
+  .vp-stacked body.quiz-arriving .timeline-wrap { animation: none; }
+}
+
+/* --- The result's chart on phones (result-chart.js): the strip becomes the chart, zoomed to the evidence,
+   dragged sideways through the years; eight rows at most, a tap opens the row's line. The marks are the
+   verdict chart's and the quiz sheet's own (.vd-*, .tlc .*); only the space and the motion are new. */
+.rc { display: none; }
+.vp-compact body.mode-result .rc:not([hidden]) { display: block; position: absolute; inset: 0; touch-action: pan-y; -webkit-tap-highlight-color: transparent; }
+.vp-compact body.mode-result .timeline-wrap.is-verdict > .vd { display: none; }
+.rc > * { position: absolute; left: 0; }
+.rc-top, .rc-over { top: 0; overflow: visible; pointer-events: none; }
+.rc svg * { transition: none; animation: none; } /* every opacity here is drawn per frame */
+.rc-rows { right: 0; overflow: hidden; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-y; }
+.rc-rows::-webkit-scrollbar { display: none; }
+.rc-rows.is-scrolling { overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.rc-rows.more-below { -webkit-mask-image: linear-gradient(to top, transparent, #000 16px); mask-image: linear-gradient(to top, transparent, #000 16px); }
+.rc-rows.more-above { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px); mask-image: linear-gradient(to bottom, transparent, #000 16px); }
+.rc-rows.more-above.more-below { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.rc-rowsvg { display: block; overflow: visible; }
+.rc-hits { position: absolute; left: 0; right: 0; top: 0; }
+.rc-hit { position: absolute; left: 0; right: 0; padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rc-hit:focus-visible { outline: 2px solid var(--brass); outline-offset: -2px; }
+.rc .rc-track { stroke: var(--paper-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.rc .rc-bar { fill: var(--ink); }
+.rc .rc-bar-agree { fill: var(--ink); }
+.rc .rc-ghosts path { fill: none; stroke: var(--brass); stroke-width: 1; }
+.rc .row-mark { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.rc .row-mark.yes { stroke: var(--ok); }
+.rc .row-mark.no { stroke: var(--accent); }
+.rc .rc-peak circle { fill: var(--brass); stroke: var(--paper); stroke-width: 1.5; }
+.rc .rc-peak line { stroke: var(--brass); stroke-width: 1; }
+.rc .rc-peak text { font: 700 13px var(--sans); letter-spacing: .06em; fill: var(--brass); font-variant-numeric: tabular-nums; }
+.rc .rc-line-paper { fill: var(--paper); }
+.rc .row-claim { font: 14px var(--serif); fill: var(--ink); }
+.rc .row-range { font: 13px var(--sans); fill: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.rc .tl-axis text { text-anchor: middle; }
+.rc .tl-axis .domain, .rc .tl-axis line { stroke: var(--border); fill: none; }
+.rc .rc-win-label { font: 600 11px var(--sans); letter-spacing: .1em; text-transform: uppercase; fill: var(--brass); text-anchor: middle; }
+/* On phones the agreement's months under the axis would sit under "Reading the chart": the column alone shows */
+/* Phones take the result's layout at once (the medallion glides, the chart grows from the strip); the laptop's
+   column transition can't tween a grid here and would flip the verdict sideways halfway through */
+.vp-compact body.mode-quiz .layout, .vp-compact body.mode-quiz .globe-wrap { transition: none; }
+
+/* --- The result's header on an upright phone (app.js placeResultHeader): the globe medallion in the answer
+   screen's place and size, the words 12 px right of its circle and centred on its ring, the chart under them */
+.vp-stacked body.mode-quiz.mode-result.res-phone .layout { display: block; position: relative; height: var(--rh-h); padding: 0; max-width: none; }
+.vp-stacked body.mode-quiz.mode-result.res-phone .globe-wrap { position: absolute; left: var(--rh-gx); top: var(--rh-gy); width: var(--rh-gd); height: var(--rh-gd); }
+.vp-stacked body.mode-result.res-phone .panel { position: absolute; left: var(--rh-tx); top: var(--rh-ty); width: var(--rh-tw); margin: 0; }
+.res-phone .vd-main > .a-kicker { white-space: nowrap; }
+.vp-stacked body.mode-result.res-phone .timeline-wrap { margin-top: var(--rh-gap); }
+/* The caption line under the phone chart (result-chart.js): the footnote, in the kicker's voice */
+.rc .rc-foot { font: 13px var(--sans); fill: var(--ink-soft); }
+/* Share: the app's paper surface (.pill, .suggest, the size toggle: #fffaf0, a paper-3 hairline, 4 px) with an 18 px line
+   icon like the size step's. */
+.btn-share {
+  display: none; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; cursor: pointer;
+  font: 500 16px var(--sans); color: var(--ink); background: #fffaf0; border: 1px solid var(--paper-3); border-radius: 4px;
+  transition: border-color .15s, background .15s; -webkit-tap-highlight-color: transparent; white-space: nowrap;
+}
+.btn-share svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.btn-share:hover { border-color: var(--ink-soft); }
+.vp-touch .btn-share:hover { border-color: var(--paper-3); }
+.vp-touch .btn-share:active { border-color: var(--ink-soft); background: var(--paper-2); }
+.btn-share:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+/* The result's two buttons on every size, always the same size as each other: "Play again" and "[icon] Share"
+   (share-modal.js). No Back: a row tap changes an answer. */
+.vd-main .actions .btn-share { display: inline-flex; align-self: stretch; }
+.btn-share[aria-expanded="true"] { border-color: var(--ink-soft); background: var(--paper-2); }
+/* laptop: side by side, 184 × 44, the primary's type */
+.vp-wide .vd-main .actions { gap: 12px; }
+.vp-wide .vd-main .actions .btn, .vp-wide .vd-main .actions .btn-share { flex: none; width: 184px; height: 44px; padding: 0 16px; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+/* upright tablet: 50/50 on the chart's width */
+.vp-page .vd-main .actions { display: flex; gap: 12px; flex-wrap: nowrap; }
+.vp-page .vd-main .actions .btn, .vp-page .vd-main .actions .btn-share { flex: 1 1 0; min-width: 0; height: 54px; padding: 0 12px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+/* upright phones: 50/50 in one row, or Share over the primary where the room allows (app.js placeResultHeader); both 54
+   tall. A 320 px phone (res-snug): both halves, the labels a step smaller to fit */
+.res-phone .vd-main .actions { gap: 10px; }
+.res-phone .vd-main .actions .btn, .res-phone .vd-main .actions .btn-share { flex: 1 1 0; min-width: 0; padding: 0 14px; white-space: nowrap; }
+.res-phone.res-snug .vd-main .actions .btn, .res-phone.res-snug .vd-main .actions .btn-share { font-size: 14.5px; padding: 0 6px; }
+.res-phone.res-stack .vd-main .actions { flex-direction: column-reverse; align-items: stretch; }
+.res-phone.res-stack .vd-main .actions .btn { flex: none; }
+.res-phone.res-stack .vd-main .actions .btn-share { flex: none; height: 54px; }
+/* a phone on its side: stacked in the left column, Share on top, 40 tall */
+.vp-short .vd-main .actions { flex-direction: column-reverse; flex-wrap: nowrap; align-items: stretch; gap: 8px; margin-top: 10px; }
+.vp-short .vd-main .actions .btn, .vp-short .vd-main .actions .btn-share { flex: none; width: 100%; height: 40px; padding: 0 10px; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+/* Phones: a smaller (i), with a 44 px target around it; no sheet: the chart names its own parts (result-chart.js) */
+.vp-compact .vd-info-btn { position: relative; width: 22px; height: 22px; font-size: 12.5px; vertical-align: 1px; }
+.vp-compact .vd-info-btn::after { content: ''; position: absolute; inset: -11px; }
+.vp-compact .vd-panel .vd-info, .vp-compact .vd-panel.info-open .vd-info { display: none; }
+.rc .rc-ann-k { font: 600 10px var(--sans); letter-spacing: .1em; text-transform: uppercase; }
+.rc .rc-ann-k.brass { fill: var(--brass); }
+.rc .rc-ann-k.ink { fill: var(--ink); }
+.rc .rc-ann-b { fill: none; stroke-width: 1.2; }
+.rc .rc-ann-b.brass { stroke: var(--brass); }
+.rc .rc-ann-b.ink { stroke: var(--ink); }
+.rc-labels { top: 0; width: 0; height: 0; }
+.rc-label { position: absolute; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rc-label:focus-visible { outline: 2px solid var(--brass); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { .vp-compact .vd-info-btn { transition: none; } }
+
+/* === Upright tablets (vp-page: stacked, not compact, at least 600 px wide) ===========================
+   The phone's order on a page of its own. Only places, the globe's size and the room each part gets
+   differ from the phone and the laptop; every component keeps its look.
+   - quiz-layout.js and lang-layout.js place the question, language and verdict screens.
+   - The timeline's ten rows are 18 px (20 on the widest), timeline.js pageRow. */
+.vp-page { --tl-h: 232px; }
+@media (min-width: 1000px) { .vp-page { --tl-h: 252px; } }
+.vp-page .tl-body .row-label { font-size: 13.5px; }
+/* Landing: the laptop's type sizes; globe.js heroFrame lifts the horizon to 52% */
+.vp-page .hero-title { font-size: clamp(50px, 6.6vw, 62px); }
+.vp-page .odometer { font-size: clamp(68px, 8.8vw, 72px); }
+.vp-page body.mode-landing .landing { padding-top: calc(var(--safe-t) + max(9vh, 36px)); }
+/* "Your map": the quiz's column, and a drawing half the screen tall (less where the step would not fit) */
+.vp-page body.mode-setup.step-size .panel { max-width: min(680px, calc(100vw - 2 * max(48px, 8.5vw))); }
+.vp-page body.step-size .scene { flex: 0 1 auto; height: 50vh; min-height: 150px; }
+/* The result (app.js placeResultPage): the globe, the words and the buttons on the chart's first year */
+.vp-page body.mode-quiz.mode-result.res-page .layout { display: block; position: relative; width: auto; max-width: none; height: var(--rp-g); margin: var(--rp-top) 0 0; padding: 0; transition: none; }
+.vp-page body.mode-quiz.mode-result.res-page .globe-wrap { position: absolute; left: var(--rp-gx); top: 0; width: var(--rp-g); height: var(--rp-g); transition: none; }
+.vp-page body.mode-result.res-page .panel { position: absolute; left: var(--rp-tx); top: var(--rp-ty); margin: 0; width: max-content; max-width: calc(100% - var(--rp-tx) - 20px); }
+.vp-page body.mode-result.res-page .timeline-wrap { height: var(--rp-chart); margin: var(--rp-gap) 14px 0; align-self: start; }
+/* "Reading the chart" on the page: the laptop's open legend (a hairline to its left, no frame), under the chart */
+.vp-page body.res-page .vd-info {
+  position: fixed; z-index: 1; left: var(--rp-ax); right: auto; top: var(--rp-iy); bottom: auto; width: var(--rp-aw); max-width: none; margin: 0;
+  padding: 2px 0 2px 24px; background: none; border: 0; border-radius: 0; box-shadow: none;
+  opacity: 0; transform: translateY(6px); visibility: hidden; transition: opacity .35s ease, transform .35s ease, visibility .35s;
+}
+.vp-page body.res-page .vd-panel.info-open .vd-info { opacity: 1; transform: none; visibility: visible; transition: opacity .35s ease, transform .35s ease, visibility 0s; }
+.vp-page body.res-page .vd-panel.info-reveal .vd-info { transform: none; transition: opacity .5s ease, visibility 0s; }
+.vp-page body.res-page .vd-info::before { left: 0; top: 0; bottom: 0; width: 1px; height: auto; margin: 0; border-radius: 0; background: var(--paper-3); transform-origin: top; }
+.vp-page body.res-page .vd-info-done { display: none; }
+.vp-page body.res-page .vd-info-item { padding: 5px 0; }
+/* The quiz timeline under an open hint: rows, band and bracket step down together (timeline.js) */
+.vp-page .tl-shift { transition: transform .4s cubic-bezier(.2, .8, .2, 1); }
+.vp-page .timeline-wrap.is-stepped .tl-scroll { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .vp-page .tl-shift { transition: none; } }
+.vp-page body.mode-result.res-page .vd-main .actions { left: var(--rp-ax); right: auto; width: var(--rp-aw); margin-left: 0; top: var(--rp-ay); bottom: auto; }
+/* A tapped row's line (verdict.js openLine), as on the phone: on its own paper so the band and the agreement column pass
+   behind it; the claim, the tick or cross at its right, the years it allows. A tap on it asks the question again. */
+.vd-rowline .vd-line-paper { fill: var(--paper); }
+.vd-rowline-g { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.vd-rowline-g:focus-visible .vd-line-paper { stroke: var(--brass); stroke-width: 2; }
+.vd-rowline .row-claim { font: 14px var(--serif); fill: var(--ink); }
+.vd-rowline .row-range { font: 13px var(--sans); fill: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.vd-rowline .row-mark { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.vd-rowline .row-mark.yes { stroke: var(--ok); }
+.vd-rowline .row-mark.no { stroke: var(--accent); }
+
+/* --- Guess the year (game.js) --------------------------------------------------------------------------
+   One screen built from the quiz's pieces, placed by game.js: the gold tag and the question line, the globe in
+   its lens, the result's year over a dial made of the timeline's axis, the timeline's bar and its marks, the
+   primary button. Only positions are set here and in game.js; the type and the buttons are the app's own. */
+body.mode-game .panel, body.mode-game .timeline-wrap, body.mode-game .globe-caption, body.mode-game .where,
+body.mode-game .status { display: none; }
+body.mode-game .layout { display: block; padding: 0; }
+body.mode-game .globe-wrap { min-height: 0; }
+body.mode-game .topbar { border-bottom-color: transparent; }
+.game { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+.game > * { position: absolute; margin: 0 !important; }
+.game > button, .game > .g-hit, .game > .g-dial-hit, .game > .g-story, .g-rows .g-row { pointer-events: auto; }
+.game.is-leaving > * { opacity: 0 !important; transition: opacity .18s ease; }
+.g-tag { overflow: hidden; text-overflow: ellipsis; }
+.g-marks .row-mark { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.g-marks .row-mark.yes { stroke: var(--ok); }
+.g-marks .row-mark.no { stroke: var(--accent); }
+.g-marks .g-now { fill: var(--ink); }
+.g-marks .g-todo { fill: none; stroke: var(--border); stroke-width: 1.1; opacity: .75; }
+/* The year: the result's, in ink while it is the player's and brass once it is the answer */
+.g-year { color: var(--ink); line-height: 1.05; white-space: nowrap; transform: translateX(-50%); transition: color .8s ease; }
+.g-year.is-landed { color: var(--brass); }
+/* a group of years that share one globe: the rest of it ("–78") opens beside the odometer, in the year's own type and
+   colour (game.js sets its width and opacity on the frame's clock) */
+.g-year-rest { display: inline-block; vertical-align: top; overflow: hidden; width: 0; opacity: 0; height: 1.1em; }
+.g-year-rest > span { display: inline-grid; place-items: center; height: 1.1em; white-space: nowrap; }
+.vp-stacked.vp-compact .g-year { font-size: clamp(40px, 12vw, 48px); }
+.vp-page .g-year { font-size: 56px; }
+.vp-short .g-year { font-size: 40px; }
+/* The dial: the timeline's axis, ticks and years under an ink needle; the bar is the timeline's */
+.g-axis line { stroke: var(--border); }
+.g-axis text { font: 11px var(--sans); fill: var(--ink-soft); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.g-bar { fill: var(--ink); fill-opacity: .5; }
+.g-bar.is-win { fill: var(--brass); fill-opacity: 1; }
+.g-needle { stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+.g-needle.is-landed { stroke: var(--brass); }
+.g-said line { stroke: var(--ink-soft); stroke-width: 1.25; stroke-linecap: round; }
+.g-said text { font: 600 11px var(--sans); fill: var(--ink-soft); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.g-dial-hit { touch-action: none; cursor: ew-resize; outline: none; -webkit-user-select: none; user-select: none; }
+.g-dial-hit:focus-visible { outline: 2px solid var(--brass); outline-offset: -2px; border-radius: 4px; }
+/* The globe in the hand */
+.g-hit { border-radius: 50%; touch-action: none; cursor: grab; outline: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.g-hit:active { cursor: grabbing; }
+.g-hit:focus-visible { outline: 2px solid var(--brass); outline-offset: 5px; }
+/* on an upright phone the result's small globe grows when tapped: a zoom-in cursor where there is a pointer, nothing drawn */
+.g-hit.can-grow { cursor: zoom-in; }
+/* while it is big, a tap on the paper around it puts it back (under the globe, the rows, the (i) and the buttons, which keep their taps) */
+.game > .g-paper { display: none; pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.game .g-guess { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+.vp-stacked .game .g-guess { font-size: 16px; }
+.game .g-guess:disabled { opacity: 0; }
+/* A look's reason, under its claim: why the last guess was wrong ("Not yet in 2008"); the kicker's voice */
+.g-why, .g-verdict { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 !important; }
+.g-verdict { line-height: 1.35; }
+/* The way to go after a miss, beside its year on the dial ("← Earlier than 2012") */
+.g-dir { font: 600 12px var(--sans); fill: var(--ink); font-variant-numeric: tabular-nums; }
+/* The result's axis (game.js axisSVG): the dial turned into the timeline's axis, and the column's foot under the rows */
+.g-chart { overflow: visible; }
+.g-chart .g-band { fill: var(--brass); fill-opacity: .14; }
+.g-chart .g-edge { stroke: var(--brass); stroke-width: 1; stroke-dasharray: 3 3; }
+/* The result's timelines (game.js rowSVG), one at a time: today's rows (the dotted track, the clue's ink bar, the guess's
+   tick and year, ✓ / ✗, the brass column behind them). Every row shows: the box never scrolls */
+.g-rows { overflow: hidden; outline: none; }
+.g-rows-in { position: relative; }
+/* a friend's globe's answers past five rows: the box scrolls (no bar), with the timeline's soft edges where rows hide */
+.g-rows.g-scroll { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.g-rows.g-scroll::-webkit-scrollbar { display: none; }
+.g-rows.g-scroll.more-above { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px); mask-image: linear-gradient(to bottom, transparent, #000 16px); }
+.g-rows.g-scroll.more-below { -webkit-mask-image: linear-gradient(to top, transparent, #000 16px); mask-image: linear-gradient(to top, transparent, #000 16px); }
+.g-rows.g-scroll.more-above.more-below { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent); mask-image: linear-gradient(to bottom, transparent, #000 16px, #000 calc(100% - 16px), transparent); }
+.g-rows .g-row { position: absolute; padding: 0; margin: 0; border: 0; background: none; cursor: pointer; border-radius: 4px; -webkit-tap-highlight-color: transparent; }
+.g-rows .g-row:focus-visible { outline: 2px solid var(--brass); outline-offset: -2px; }
+.g-rows .g-row svg { display: block; overflow: visible; }
+.g-rows .g-track { stroke: var(--paper-3); stroke-width: 1; stroke-dasharray: 2 3; }
+.g-rows .row-mark { fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.g-rows .row-mark.yes { stroke: var(--ok); }
+.g-rows .row-mark.no { stroke: var(--accent); }
+.g-rows .g-bar { fill: var(--ink); fill-opacity: .5; }
+.g-rows .g-band { fill: var(--brass); fill-opacity: .14; }
+.g-rows .g-edge { stroke: var(--brass); stroke-width: 1; stroke-dasharray: 3 3; }
+.g-rows .g-guessed line { stroke: var(--ink); stroke-width: 1.5; }
+/* a guess's year, and the year a clue's picture changed (beside its bar), in the same type */
+.g-rows .g-guessed text, .g-rows .g-at { font: 500 11px var(--sans); fill: var(--ink-soft); font-variant-numeric: tabular-nums; paint-order: stroke; stroke: var(--paper); stroke-width: 3px; stroke-linejoin: round; }
+/* The line over them: the gold label ("Your guesses" / "Why 1991") and the app's (i) at its right end, which switches
+   between the two. Its 44 px target (inside the 1.2 px ring) reaches up into the free paper, never down onto the first
+   row. The frame mixes its ink (game.js drawResult), so it has no transition of its own */
+.g-head { line-height: 16px; white-space: nowrap; }
+.game > .vd-info-btn.g-info { position: absolute; transition: none; }
+.g-info::after { content: ''; position: absolute; inset: -19.5px -13.5px -7px; }
+.vp-compact .g-info::after { inset: -17.5px -12.5px -7px; }
+.vp-page .g-info::after { inset: -14px -10.5px -7px; }
+/* A story is measured here at each size it may take (game.js storyHeights) */
+.game > .g-measure { left: -10000px; top: 0; visibility: hidden; pointer-events: none; overflow: visible; height: auto; }
+/* The story under the axis: fitted to its room (game.js fitStory), so it never needs to scroll */
+.g-story { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.g-story::-webkit-scrollbar { display: none; }
+.g-story > :first-child { margin-top: 0; }
+.g-story .a-kicker { margin: 0 0 4px; }
+.g-story .a-story { max-width: none; }
+.g-story .a-source { display: inline-block; margin-bottom: 2px; }
+.game .g-share { display: inline-flex; }
+.game .g-share:disabled { opacity: 0; }
+/* "The world in 1991": the app's title (.q-title), one step under the quiz's question at each size */
+.game .g-story .q-title.g-wtitle { font-size: 21px !important; line-height: 1.2 !important; margin: 0 0 6px !important; }
+.vp-page .game .g-story .q-title.g-wtitle { font-size: 26px !important; }
+.vp-wide .game .g-story .q-title.g-wtitle { font-size: 24px !important; }
+.vp-short .game .g-story .q-title.g-wtitle { font-size: 19px !important; }
+@media (max-height: 600px) { .vp-stacked.vp-compact .game .g-story .q-title.g-wtitle { font-size: 19px !important; } }
+/* The smallest phones (narrower than 360 px): the result's type one step smaller, so its gaps keep their room
+   (game.js .g-tiny: 16 px sides, a 76 px medallion, the year at 38 px, 44 px buttons) */
+.vp-stacked .game.g-tiny .g-story .q-title.g-wtitle { font-size: 18px !important; }
+.game.g-tiny .g-head { font-size: 10px; letter-spacing: .12em; }
+.game.g-tiny .g-verdict { font-size: 12px; }
+.game.g-tiny .g-story .a-kicker { font-size: 12px; }
+.game.g-tiny .g-story .a-when { font-size: 10px; margin-top: 8px; padding-top: 7px; }
+.game.g-tiny .g-story .a-story { font-size: 13.5px; line-height: 1.42; margin: 3px 0; }
+.game.g-tiny .g-story .a-source { font-size: 11.5px; }
+.game.g-tiny .g-rows text { font-size: 10px; }
+.game.g-tiny.g-res .g-guess, .game.g-tiny .g-share { font-size: 15px; }
+.game.g-tiny .g-share svg { width: 16px; height: 16px; }
+.game.g-tiny > .vd-info-btn.g-info { width: 20px; height: 20px; font-size: 12px; }
+.game.g-tiny .g-info::after { inset: -19.5px -13.5px -7px; }
+/* The landing's second door, under "Find out when": the app's paper button (Share's surface), as tall and as wide */
+.hero-doors { display: inline-grid; gap: 12px; justify-items: stretch; }
+.hero-doors > button { justify-content: center; min-height: 48px; }
+/* Laptops (and iPads on their side): the words a touch smaller and higher, so the doors keep clear of the globe's ring
+   (the globe's place doesn't depend on them here) */
+.vp-wide body.mode-landing .landing { padding-top: calc(var(--safe-t) + max(5vh, 32px)); }
+.vp-wide .hero-title { font-size: clamp(34px, 4.5vw, 58px); }
+.vp-wide .odometer { font-size: clamp(40px, 5.2vw, 66px); margin: 2vh 0 2.6vh; }
+.vp-wide .hero-brand { margin-bottom: 3vh; }
+/* Laptops and iPads: the two doors side by side, as wide as each other. Phones keep them one under the other */
+.vp-wide .hero-doors, .vp-page .hero-doors { grid-auto-flow: column; grid-auto-columns: 1fr; }
+.hero-game {
+  display: inline-flex; align-items: center; cursor: pointer; padding: 15px 22px;
+  font: 500 16px var(--sans); letter-spacing: .02em; color: var(--ink); background: #fffaf0; border: 1px solid var(--paper-3); border-radius: 4px;
+  transition: border-color .15s, background .15s; -webkit-tap-highlight-color: transparent; touch-action: none;
+}
+.hero-game:hover { border-color: var(--ink-soft); }
+.vp-touch .hero-game:hover { border-color: var(--paper-3); }
+.vp-touch .hero-game:active, .hero-game:active { border-color: var(--ink-soft); background: var(--paper-2); }
+.hero-game:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.vp-stacked .hero-game { padding: 16px 24px; }
+/* "New" on the game's door: a small luggage tag hanging off its top-right corner at a slight tilt. The button's paper,
+   a brass hairline edge and a punched hole; the word in the gold label voice (.q-context). The button keeps its size */
+.hero-game { position: relative; }
+.hero-new {
+  position: absolute; top: -13px; right: -12px; transform: rotate(9deg); transform-origin: 0 50%;
+  padding: 3px 8px 3px 15px; border: 1px solid var(--brass); border-radius: 2px 3px 3px 2px; background: #fffaf0;
+  font: 600 10px/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--brass); pointer-events: none;
+}
+/* phones: the buttons are stacked 12 px apart, so the tag hangs a little lower, clear of the one above */
+.vp-stacked:not(.vp-page) .hero-new, .vp-short .hero-new { top: -8px; }
+.hero-new::before { content: ''; position: absolute; left: 5px; top: 50%; width: 3px; height: 3px; margin-top: -2.5px; border: 1px solid var(--brass); border-radius: 50%; }
+
+/* A notice at the top (notice.js): the help's paper card, the brand mark, a title and a line, ✕; a brass hairline runs out
+   along its foot until it leaves by itself (paused while hovered or focused) */
+.notice { position: fixed; z-index: 39; left: 50%; width: min(440px, calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right))); box-sizing: border-box;
+  display: flex; align-items: flex-start; gap: 12px; padding: 14px 44px 15px 16px; overflow: hidden;
+  background: var(--paper); color: var(--ink); border: 1px solid var(--paper-3); border-radius: 14px; box-shadow: 0 18px 44px -26px rgba(31, 42, 55, .5);
+  opacity: 0; transform: translate(-50%, -6px); transition: opacity .22s cubic-bezier(.25, .1, .25, 1), transform .26s cubic-bezier(.2, .8, .2, 1); }
+.notice.on { opacity: 1; transform: translate(-50%, 0); }
+.notice-mark { flex: none; margin-top: 3px; color: var(--brass); font-size: 15px; line-height: 1; }
+.notice-words { flex: 1 1 auto; min-width: 0; padding-top: 1px; }
+.notice-title { margin: 0; font: 600 16px/1.3 var(--serif); }
+.notice-text { margin: 3px 0 0; font: 14px/1.42 var(--sans); color: var(--ink-soft); }
+/* ✕ in the card's top-right corner: centred on the title's line (padding 14 + words 1 + half of the 20.8 px line, less half
+   the 44 px target) and as far from the side as from the top. .notice scopes it past help.css's .help-close margin. */
+.notice .notice-close { position: absolute; top: calc(15px + 1.3 * 16px / 2 - 22px); right: calc(15px + 1.3 * 16px / 2 - 22px); margin: 0; }
+.notice-time { position: absolute; left: 16px; right: 16px; bottom: 0; height: 2px; border-radius: 1px; background: var(--brass); opacity: .45; transform-origin: left center;
+  animation: notice-time var(--notice-ms, 7000ms) linear forwards; }
+.notice:hover .notice-time, .notice:focus-within .notice-time { animation-play-state: paused; }
+@keyframes notice-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .notice { transform: translate(-50%, 0); transition: opacity .2s; } .notice-time { opacity: 0; } }
+
+/* ------------------------------------------------------------------ without JavaScript (index.html <noscript>)
+   The app can't run: its words take the whole screen in the paper style, and this one page may scroll */
+.noscript { position: fixed; inset: 0; z-index: 100; overflow-y: auto; background: var(--paper); color: var(--ink);
+  padding: calc(48px + var(--safe-t)) max(24px, var(--safe-r)) calc(48px + var(--safe-b)) max(24px, var(--safe-l)); }
+.noscript > * { max-width: 34rem; margin-inline: auto; }
+.noscript h1 { font: 600 clamp(28px, 5vw, 40px)/1.15 var(--serif); margin-block: 0 18px; }
+.noscript h2 { font: 600 21px/1.25 var(--serif); margin-block: 30px 8px; }
+.noscript p { font: 17px/1.6 var(--serif); color: var(--ink-soft); margin-block: 0 12px; }
+.noscript strong { color: var(--ink); font-weight: 600; }

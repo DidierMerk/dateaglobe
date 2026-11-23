@@ -1,0 +1,5 @@
+# Date a Globe: every page and file may be read, by search engines and AI assistants alike.
+User-agent: *
+Allow: /
+
+Sitemap: https://didiermerk.github.io/dateaglobe/sitemap.xml

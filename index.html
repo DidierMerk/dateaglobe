@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- viewport-fit=cover: the paper runs under the notch and home bar; style.css keeps content inside the safe area.
+       resizes-content: on Android the keyboard shrinks the page, so the app re-fits above it (viewport.js does it on iOS). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#f4ecdc">
+  <meta name="color-scheme" content="light">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  <!-- The layout class before the first paint (the same rule as viewport.js layoutFor) -->
+  <script>
+    (function () {
+      var w = innerWidth, h = innerHeight, c = document.documentElement.classList;
+      var short = h <= 500 && w >= h, stacked = !short && (w <= 860 || w / h <= 0.8);
+      c.add(short ? 'vp-short' : stacked ? 'vp-stacked' : 'vp-wide');
+      if (short || (stacked && h <= 960)) c.add('vp-compact');
+      else if (stacked && w >= 600) c.add('vp-page');
+      if (matchMedia('(hover: none)').matches) c.add('vp-touch');
+    })();
+  </script>
+  <title>Date a Globe — when was your globe made?</title>
+  <!-- What Google shows under the title, and the one official address. The address below (and SITE in share-logic.js)
+       is a stand-in: the published build (tools/dist.mjs) writes in "site.address" from package.json. -->
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Find out when your old globe or map was made by answering a few yes or no questions; or test your globe knowledge with the guessing game.">
+  <link rel="canonical" href="https://didiermerk.github.io/dateaglobe/">
+  <!-- The card a shared link gets in WhatsApp, iMessage, Facebook, LinkedIn, Slack, X …: these apps read only this
+       HTML (they never run the app), so the card's words and picture must be here. og.png: the landing, 1200 × 630. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Date a Globe">
+  <meta property="og:url" content="https://didiermerk.github.io/dateaglobe/">
+  <meta property="og:title" content="Date a Globe — when was your globe made?">
+  <meta property="og:description" content="Find out when your old globe or map was made by answering a few yes or no questions; or test your globe knowledge with the guessing game.">
+  <meta property="og:image" content="https://didiermerk.github.io/dateaglobe/og.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="An old globe under the words: Every globe is frozen in the year it was made.">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- What the app is, in the words people use when they ask Google or an AI assistant (schema.org; nobody sees it).
+       Keep it true to what the app does: Google ignores, or penalises, claims the page doesn't back up. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Date a Globe",
+    "alternateName": ["Globe dater", "Map dater", "Date a map", "Date my globe", "When was my globe made"],
+    "url": "https://didiermerk.github.io/dateaglobe/",
+    "description": "Date a Globe tells you when an old globe, map or atlas was made. Answer a few yes or no questions about what it shows (country names, borders, capitals, lakes) and it works out the year it was most likely printed. Or test your knowledge in the guessing game: look at a globe from the past and guess when it was made.",
+    "abstract": "A free web app that dates old globes, maps and atlases from the borders and names they show, plus a geography puzzle game where you guess a globe's year.",
+    "keywords": "date a globe, date a map, date an atlas, when was this globe made, when was this map made, how old is my globe, how old is my map, how to date an old globe, how to date an old map, vintage globe date, antique globe age, old world map date, globe printing year, historical borders, geography quiz, geography puzzle, guess the year, test your geography knowledge",
+    "featureList": [
+      "Find out when your globe, map or atlas was made by answering a few yes or no questions about what it shows",
+      "Works from the country names, borders, capitals and lakes printed on it, from 1886 to today",
+      "Shows the most likely year and the range of years your globe could be from, with the history behind every answer",
+      "Guess the year: look at a globe from the past and guess when it was made, with five guesses and a hint after every miss",
+      "Share your dated globe with a friend as a game, or challenge friends to beat your score"
+    ],
+    "applicationCategory": "EducationalApplication",
+    "applicationSubCategory": "Geography",
+    "genre": ["Geography", "History", "Maps", "Puzzle"],
+    "about": [
+      { "@type": "Thing", "name": "Globe" },
+      { "@type": "Thing", "name": "Map" },
+      { "@type": "Thing", "name": "Atlas" },
+      { "@type": "Thing", "name": "Historical geography" }
+    ],
+    "audience": { "@type": "Audience", "audienceType": "Owners and collectors of old globes, maps and atlases; geography fans" },
+    "operatingSystem": "Any",
+    "browserRequirements": "Requires JavaScript",
+    "isAccessibleForFree": true,
+    "image": "https://didiermerk.github.io/dateaglobe/og.png",
+    "inLanguage": "en",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+    "author": { "@type": "Person", "name": "Didier Merk", "url": "https://didiermerk.github.io/" }
+  }
+  </script>
+  <!-- The icon (the desk globe): SVG for the tab, PNGs where SVG isn't taken, a paper tile for home screens.
+       Sources in icons/ (icon.svg, icon-maskable.svg); the short name keeps the long title off the home screen. -->
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="icons/favicon-16.png" sizes="16x16" type="image/png">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-title" content="Date a Globe">
+  <link rel="stylesheet" href="v/1b3e7afbcb/app/style.css">
+  <link rel="stylesheet" href="v/1b3e7afbcb/app/help.css">
+  <link rel="stylesheet" href="v/1b3e7afbcb/app/share-modal.css">
+</head>
+<body class="mode-landing">
+  <!-- Shown only where JavaScript is off; also read by search engines and AI tools that don't run the app -->
+  <noscript>
+    <div class="noscript">
+      <h1>Date a Globe — when was your globe made?</h1>
+      <p>Every globe is a snapshot of the year it was made. Over the years countries split, join together or take new
+        names; capitals move and lakes dry up. Its borders and names tell the story of the world at the time it was made.</p>
+      <h2>Date your globe, map or atlas</h2>
+      <p>How old is your globe? With your globe, map or atlas in front of you, answer a few yes or no questions about
+        the world it shows: country names, borders, capitals and lakes. Every answer narrows down the years in which it
+        could have been made, until Date a Globe tells you the year it was most likely printed.</p>
+      <h2>Guess the year: test your knowledge</h2>
+      <p>No globe at hand? Can you guess when this map was made? Look at a globe from the past and guess its year. You
+        have five guesses, and every miss earns a new hint. A geography puzzle you can play every day, and share with
+        friends to see who knows their history best.</p>
+      <p><strong>Date a Globe needs JavaScript. Turn it on to start.</strong></p>
+    </div>
+  </noscript>
+  <header class="topbar">
+    <button class="brand" id="home" aria-label="Back to the start"><span class="brand-mark">◍</span> Date a Globe</button>
+    <div class="topbar-right">
+      <div class="status" id="status"></div>
+      <!-- "How it works" (help.js): the bar's last piece on every screen, so it always sits at its right end -->
+      <button class="vd-info-btn help-btn" id="help-btn" type="button" aria-haspopup="dialog" aria-controls="help" aria-expanded="false" aria-label="How it works">?</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="globe-wrap" aria-label="Globe">
+      <canvas id="globe" aria-hidden="true"></canvas>
+      <div class="globe-caption" id="globe-caption"></div>
+    </section>
+
+    <section class="panel" id="panel" aria-live="polite">
+      <!-- Filled by setup.js (language, size) and app.js (question, history card, result) -->
+    </section>
+
+    <section class="landing" id="landing">
+      <!-- Filled by setup.js -->
+    </section>
+  </main>
+
+  <!-- "Guess the year": its pieces are built and placed by game.js -->
+  <section class="game" id="game" aria-label="Guess the year" hidden></section>
+
+  <footer class="timeline-wrap" id="timeline" aria-label="Timeline of your answers">
+    <!-- Filled by timeline.js: one bar per answer -->
+  </footer>
+
+  <!-- Served from node_modules by tools/serve.mjs, so the app works offline; the published build copies these files. -->
+  <script src="v/1b3e7afbcb/node_modules/d3/dist/d3.min.js"></script>
+  <script src="v/1b3e7afbcb/node_modules/topojson-client/dist/topojson-client.min.js"></script>
+  <script type="module" src="v/1b3e7afbcb/app/app.js"></script>
+</body>
+</html>
