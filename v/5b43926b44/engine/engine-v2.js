@@ -21,7 +21,7 @@
 // Pure computation, shared by the Node tools and the browser.
 
 import { monthCentre, formatDecimalYear } from './dates.js';
-import { lagCdf, depictionP, normaliseName, optionsFor, card, monthMarginal, monthEntropy, nowDecimalYear, mulberry32, shuffle } from './shared.js';
+import { lagCdf, depictionP, normaliseName, optionsFor, card, monthMarginal, monthEntropy, nowDecimalYear, mulberry32, shuffle, progressValue } from './shared.js';
 
 export { lagCdf, depictionP, normaliseName, optionsFor, nowDecimalYear, mulberry32 };
 export const ENGINE_VERSION = 2;
@@ -259,11 +259,13 @@ export function createSession(bundle, opts = {}) {
 
   let history = []; // [{ featureId, optionKey, reply, special, predictive, gainBits }]
   let post = prior.slice();
+  let revision = 0; // bumps whenever the answers change, so work done for one set of answers is kept until then
   // Joint answers: per answered feature, P(state, its answers so far | month, column)
   let stateWeights = new Map();
 
   /** Rebuilds the posterior from the prior and every answer, in order. */
   function recompute() {
+    revision++;
     post = prior.slice();
     stateWeights = new Map();
     for (const h of history) {
@@ -387,7 +389,15 @@ export function createSession(bundle, opts = {}) {
     return null;
   }
 
+  // The ranking of every question for the current answers. The next question and the progress line both need it, so it
+  // is worked out once per set of answers (about 20 ms on a laptop)
+  let ranked = null, rankedAt = -1;
   function rankQuestions() {
+    if (rankedAt !== revision) { ranked = rankAll(); rankedAt = revision; }
+    return ranked;
+  }
+
+  function rankAll() {
     const region = lastRegion();
     const H0 = monthEntropy(post, M, B);
     return candidates()
@@ -429,6 +439,8 @@ export function createSession(bundle, opts = {}) {
     const usual = all.filter((s) => share(s) >= 0.5);
     return usual.length ? usual : all;
   }
+
+  const startWidth = interval().widthMonths; // the 80% window before any answer (about 113 years)
 
   const api = {
     config: cfg,
@@ -535,6 +547,21 @@ export function createSession(bundle, opts = {}) {
     },
 
     interval,
+
+    /**
+     * How close the session is to its result, for the app's progress line: { value: 0..1, done }. `done` is true when
+     * no question is left to ask (nextQuestion() gives null), and then value is 1. Before any answer it is 0. See
+     * shared.js progressValue. An engine that picks its questions differently (v3) passes its own `done`.
+     */
+    progress(done = api.nextQuestion() === null) {
+      if (done) return { value: 1, done: true };
+      if (!history.some((h) => !h.special)) return { value: 0, done: false };
+      const value = progressValue({
+        widthMonths: interval().widthMonths, startWidthMonths: startWidth, stopWidthMonths: cfg.stopWidthMonths,
+        bestGainBits: rankQuestions()[0]?.gain, minGainBits: cfg.minGainBits,
+      });
+      return { value, done: false };
+    },
 
     /** Probability per calendar year, for the time ribbon. */
     yearDensity() {

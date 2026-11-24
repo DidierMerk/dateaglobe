@@ -136,3 +136,19 @@ export function shuffle(arr, rng) {
   }
   return a;
 }
+
+/**
+ * How far a session has come towards its result, from 0 to 1: the app's progress line (docs/ENGINE_V3.md, "Progress").
+ * A session stops when its 80% window is `stopWidthMonths` narrow, or when no question is worth `minGainBits` any more.
+ * Both are measured on a log scale, and whichever is further along counts:
+ *   - the window, from its width before any answer (`startWidthMonths`) down to the stopping width;
+ *   - the best question's worth, from 1 bit (the most a yes/no can tell) down to the floor.
+ * It is not a count of the questions left, and it can go back: an answer that leaves two periods widens the window.
+ */
+export function progressValue({ widthMonths, startWidthMonths, stopWidthMonths, bestGainBits, minGainBits }) {
+  const part = (from, at, to) => (from > to && to > 0 ? Math.log(from / at) / Math.log(from / to) : 0);
+  const clamp = (x) => (Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0);
+  const narrowed = clamp(part(startWidthMonths, Math.max(widthMonths, 1e-9), stopWidthMonths));
+  const spent = clamp(part(1, Math.max(bestGainBits ?? 0, 1e-9), minGainBits));
+  return Math.max(narrowed, spent);
+}
