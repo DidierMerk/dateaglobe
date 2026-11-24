@@ -14,6 +14,7 @@ import { odometerHTML, setOdometer, rollOdometer } from './odometer.js';
 import { isCompact, isWide, isPage, onLayout, layout } from './viewport.js';
 import { createQuizLayout, medallionSlot } from './quiz-layout.js';
 import { whenQuiet } from './quiet.js';
+import { createMeter } from './meter.js';
 import { chartDims } from './result-chart.js';
 import { createShareModal } from './share-modal.js';
 import { shareFacts } from './share-logic.js';
@@ -83,6 +84,8 @@ const timeline = createTimeline(document.getElementById('timeline'), startYear, 
 // onInfo: the phone chart closes its labels itself (a tap under it, Escape); the (i) follows
 let setResultInfo = null;
 const verdict = createVerdict(document.getElementById('timeline'), startYear, endYear, { onSelect: (row) => reask(row), compact: () => isCompact(), sizes: () => resultSizes, onInfo: (open) => setResultInfo?.(open), rowLine: () => isPage() });
+// The progress line on the foot of the top bar (meter.js): how close the dating is to a year, while the questions run
+const meter = createMeter({ el: document.getElementById('meter'), bar: document.querySelector('.topbar'), panel, layoutEl: document.querySelector('.layout'), beside: () => layout().kind !== 'stacked' });
 // Phones and upright tablets: the question and answer screens as a stage with fixed places (quiz-layout.js)
 const quizLayout = createQuizLayout({ layoutEl: document.querySelector('.layout'), wrap: document.querySelector('.globe-wrap'), panel, globe, timelineEl: document.getElementById('timeline'), onHeadroom: (px) => timeline.setHeadroom(px) });
 // "Guess the year" (game.js): a globe from a year the app picks, with the names of that year (data/names.json)
@@ -128,7 +131,7 @@ let resumeScreen = () => {};
 let session = null;
 let current = null; // current question
 // ?debug exposes the current question and session to browser tests
-if (debug) { window.__current = () => current; window.__session = () => session; }
+if (debug) { window.__current = () => current; window.__session = () => session; window.__meter = () => ({ shown: meter.shown, value: meter.value }); }
 const setup = { language: null, mapSize: 'medium', mapKind: 'globe', seed: 0 };
 
 /** The evidence timeline: one bar per answered question, plus the most-likely window. */
@@ -181,7 +184,7 @@ function setMode(mode) {
   resultMode(false);
   if (mode !== 'game') game.stop();
   document.body.classList.add(`mode-${mode}`);
-  if (mode !== 'quiz') { statusEl.textContent = ''; globe.setScene(null); awaiting = null; quizLayout.detach(); lastCamera = null; }
+  if (mode !== 'quiz') { statusEl.textContent = ''; globe.setScene(null); awaiting = null; quizLayout.detach(); lastCamera = null; meter.hide({ instant: true }); }
 }
 
 const flow = createSetupFlow({
@@ -192,7 +195,10 @@ const flow = createSetupFlow({
   onGame: () => startGame(),
   // The questions' data has almost always arrived by now; if not, the quiz starts the moment it has
   onDone: ({ from = null, ...choice }) => quizData.then(() => {
-    const go = () => { Object.assign(setup, choice); arrival = staged() ? from : null; start(); };
+    // Side by side, the question's column is shorter than the size step's (the timeline takes its room): the lens
+    // shrinks into it on the first flight's own clock (1400 ms, the same curve) instead of in one frame
+    const lensWas = staged() ? null : document.querySelector('.globe-wrap').getBoundingClientRect();
+    const go = () => { Object.assign(setup, choice); arrival = staged() ? from : null; start(); if (lensWas) globe.lensFrom(lensWas, { ms: 1400 }); };
     // On the stage the desk globe carries over into the first question: no cross-fade
     if (staged()) go(); else transition(go);
   }),
@@ -225,6 +231,27 @@ let awaiting = null; // what's on screen: 'question' | 'answer' | null (Enter mo
 
 const year = (t) => Math.floor(t);
 const capitalise = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/**
+ * The progress line follows the answers. The engine's progress (engine-v2.js progress) needs the ranking of every
+ * question that the next question is picked from (about 20 ms on a laptop, more on a phone). After an answer it is
+ * worked out in a quiet moment while the answer is read, and the line moves then; Next reuses that ranking.
+ */
+const answersKey = (s) => s.history().map((h) => `${h.featureId}:${h.optionKey}:${h.reply}`).join('|');
+function updateMeterSoon() {
+  const s = session;
+  if (!s?.progress) return;
+  const key = answersKey(s);
+  whenQuiet(() => { if (s === session && key === answersKey(s) && meter.shown) meter.set(s.progress()); }, { settle: 120, maxWait: 1500 });
+}
+/**
+ * The question and answer screens carry the line. `now`: bring it up to date at once (a question: its ranking was just
+ * made to pick it); an answer screen leaves that to updateMeterSoon, unless the line is only now coming back.
+ */
+function showMeter({ now = true } = {}) {
+  if (session?.progress && (now || !meter.shown)) meter.set(session.progress());
+  meter.show();
+}
 
 /** The years NOT covered by these spans, between the start of the timeline and now. */
 function complement(spans) {
@@ -295,6 +322,7 @@ function renderQuestion({ feature, option } = current, again = null) {
   resultMode(false);
   const n = again ? again.index + 1 : session.history().length + 1;
   const isName = feature.kind === 'pick_name';
+  showMeter();
   statusEl.innerHTML = `<span class="st-long">Question</span><span class="st-short" aria-hidden="true">Q</span> ${n}`;
   captionEl.textContent = '';
   globe.setScene(scenes.sceneFor(feature, option, setup.language));
@@ -316,9 +344,11 @@ function renderQuestion({ feature, option } = current, again = null) {
       document.body.classList.add('quiz-arriving');
       setTimeout(() => document.body.classList.remove('quiz-arriving'), 1000);
     } else if (stage) {
-      // One clue to the next: the camera hops (zooming out a little and back in); the same clue stays where it is
-      if (lastCamera !== feature.camera) globe.flyTo(feature.camera, 1100, { mark: false, via: lastCamera ? 'hop' : null });
-    } else globe.flyTo(feature.camera, 1400, { mark: false });
+      // One clue to the next: the camera hops (zooming out a little and back in); the same clue stays where it is.
+      // From the whole earth (a first question with no desk globe to lift off) the hop turns, then dives in
+      if (lastCamera !== feature.camera) globe.flyTo(feature.camera, 1100, { mark: false, via: 'hop' });
+    // From the whole earth (the first question): one turn-and-dive (globe.js hop) instead of turning and zooming apart
+    } else globe.flyTo(feature.camera, 1400, { mark: false, via: lastCamera ? null : 'hop' });
     lastCamera = feature.camera;
   }
 
@@ -435,6 +465,7 @@ function reviseReply(answer) {
   // Not sure removes the answer: carry on with the best next question
   if (answer === 'unsure') return swapScreen(next);
   swapScreen(() => renderAnswer(feature, option, answer, null, { onBack: () => reask({ ...row, reply: answer }) }));
+  updateMeterSoon();
 }
 
 function reply(answer) {
@@ -443,6 +474,7 @@ function reply(answer) {
   refreshTimeline();
   if (answer === 'unsure') return next();
   renderAnswer(feature, option, answer, result);
+  updateMeterSoon();
 }
 
 /**
@@ -451,6 +483,7 @@ function reply(answer) {
  */
 function renderAnswer(feature, option, answer, result = null, { onBack = undo } = {}) {
   resultMode(false);
+  showMeter({ now: false });
   const isName = feature.kind === 'pick_name';
   resumeScreen = () => renderAnswer(feature, option, answer, result, { onBack });
   restoreGlobe = ({ duration = 1000, via = null } = {}) => {
@@ -556,6 +589,7 @@ function renderResult() {
   restoreGlobe = () => { globe.reset(); globe.setScene(answered ? scenes.worldAt(peak + 0.5) : null); };
 
   if (!answered) {
+    meter.hide();
     quizLayout.detach();
     statusEl.textContent = '';
     restoreGlobe();
@@ -579,6 +613,9 @@ function renderResult() {
   const frames = replayFrames();
   const wasResult = document.body.classList.contains('mode-result');
   const choreograph = play && !wasResult && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // The progress line steps aside: on the way into a new result it completes and runs off to its right end as the
+  // old screen fades (meter.js leave); back to a result already seen, it simply fades
+  if (choreograph) meter.leave(); else meter.hide();
 
   const range = `${year(win.from)} – ${year(win.to)}`;
   const mount = () => {
@@ -962,7 +999,7 @@ function fitBand() {
 addEventListener('resize', fitBand);
 // Turning a phone or resizing across layouts: fold away sheets that belong to the other layout
 onLayout(() => {
-  timeline.close(); fitBand();
+  timeline.close(); fitBand(); meter.place();
   // The question and answer screens are built differently on the stage: build the one on screen again
   if (awaiting && !document.body.classList.contains('mode-result')) resumeScreen();
   // The result is drawn differently on phones: settled, in the new form

@@ -75,31 +75,34 @@ export function createSession(bundle, opts = {}) {
   const cfg = s.config;
   const seed = cfg.seed ?? 12345;
 
+  /**
+   * Next question, or null when the session should stop (the same rule as v2).
+   * A yes/no about `option`; `options` lists all of the feature's options.
+   */
+  function nextQuestion() {
+    if (s.isDone()) return null;
+    const ranked = s.rankedQuestions();
+    if (!ranked.length || ranked[0].gain < cfg.minGainBits) return null;
+    const history = s.history();
+    const state = history.map((h) => `${h.featureId}:${h.optionKey}:${h.reply}`).join(',');
+    const rng = v2.mulberry32(hash(seed, state));
+    // Never ask about a picture that is usual in every year (two kingdoms with a border, before and
+    // after 1905): its yes rules nothing out and reads as "Any year". The feature's other options
+    // split the same way and their yes dates the map, so ask one of those instead.
+    const anyYear = (x) => x.options.length > 1 && (() => {
+      const spans = s.optionSpans(x.feature.id, x.option.key);
+      return spans.length === 1 && spans[0].from == null && spans[0].to == null;
+    })();
+    const q = pickQuestion(ranked.filter((x) => x.gain >= cfg.minGainBits && !anyYear(x)), history.length, rng, variety);
+    if (!q) return null;
+    return { feature: q.feature, option: q.option, options: q.options, expectedGainBits: q.gain };
+  }
+
   return {
     ...s,
     version: ENGINE_VERSION,
-
-    /**
-     * Next question, or null when the session should stop (the same rule as v2).
-     * A yes/no about `option`; `options` lists all of the feature's options.
-     */
-    nextQuestion() {
-      if (s.isDone()) return null;
-      const ranked = s.rankedQuestions();
-      if (!ranked.length || ranked[0].gain < cfg.minGainBits) return null;
-      const history = s.history();
-      const state = history.map((h) => `${h.featureId}:${h.optionKey}:${h.reply}`).join(',');
-      const rng = v2.mulberry32(hash(seed, state));
-      // Never ask about a picture that is usual in every year (two kingdoms with a border, before and
-      // after 1905): its yes rules nothing out and reads as "Any year". The feature's other options
-      // split the same way and their yes dates the map, so ask one of those instead.
-      const anyYear = (x) => x.options.length > 1 && (() => {
-        const spans = s.optionSpans(x.feature.id, x.option.key);
-        return spans.length === 1 && spans[0].from == null && spans[0].to == null;
-      })();
-      const q = pickQuestion(ranked.filter((x) => x.gain >= cfg.minGainBits && !anyYear(x)), history.length, rng, variety);
-      if (!q) return null;
-      return { feature: q.feature, option: q.option, options: q.options, expectedGainBits: q.gain };
-    },
+    nextQuestion,
+    /** How close the session is to its result: { value: 0..1, done } (engine-v2.js progress), done by v3's own rule. */
+    progress: () => s.progress(nextQuestion() === null),
   };
 }

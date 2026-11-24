@@ -23,7 +23,7 @@
 // the Node tools share it.
 
 import { monthCentre, formatDecimalYear } from './dates.js';
-import { lagCdf, depictionP, normaliseName, optionsFor, card, bayes, predictive, monthMarginal, monthEntropy, nowDecimalYear, mulberry32, shuffle } from './shared.js';
+import { lagCdf, depictionP, normaliseName, optionsFor, card, bayes, predictive, monthMarginal, monthEntropy, nowDecimalYear, mulberry32, shuffle, progressValue } from './shared.js';
 
 export { lagCdf, depictionP, normaliseName, optionsFor, nowDecimalYear, mulberry32 };
 export const ENGINE_VERSION = 1;
@@ -124,8 +124,10 @@ export function createSession(bundle, opts = {}) {
 
   let history = []; // [{ featureId, optionKey, reply: 'yes'|'no'|null, special, predictive, gainBits }]
   let post = prior.slice();
+  let revision = 0; // bumps whenever the answers change
 
   function recompute() {
+    revision++;
     post = prior.slice();
     for (const h of history) {
       if (h.special) continue;
@@ -192,7 +194,14 @@ export function createSession(bundle, opts = {}) {
     return null;
   }
 
+  // Worked out once per set of answers: the next question and the progress line both need it
+  let ranked = null, rankedAt = -1;
   function rankQuestions() {
+    if (rankedAt !== revision) { ranked = rankAll(); rankedAt = revision; }
+    return ranked;
+  }
+
+  function rankAll() {
     const region = lastRegion();
     return candidates()
       .map(({ feature, k }) => {
@@ -219,6 +228,8 @@ export function createSession(bundle, opts = {}) {
       mass: acc,
     };
   }
+
+  const startWidth = interval().widthMonths; // the 80% window before any answer
 
   const api = {
     config: cfg,
@@ -312,6 +323,17 @@ export function createSession(bundle, opts = {}) {
     },
 
     interval,
+
+    /** How close the session is to its result: { value: 0..1, done } (engine-v2.js progress, shared.js progressValue). */
+    progress(done = api.nextQuestion() === null) {
+      if (done) return { value: 1, done: true };
+      if (!history.some((h) => !h.special)) return { value: 0, done: false };
+      const value = progressValue({
+        widthMonths: interval().widthMonths, startWidthMonths: startWidth, stopWidthMonths: cfg.stopWidthMonths,
+        bestGainBits: rankQuestions()[0]?.gain, minGainBits: cfg.minGainBits,
+      });
+      return { value, done: false };
+    },
 
     /** Probability per calendar year, for the time ribbon. */
     yearDensity() {

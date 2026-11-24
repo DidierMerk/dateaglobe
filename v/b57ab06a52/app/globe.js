@@ -143,10 +143,13 @@ export function createGlobe(canvas, world, { onView, heroClear = () => 0 } = {})
     const t = Math.min(1, (performance.now() - morph.start) / morph.duration);
     if (t >= 1) morph = null;
     const e = (morph?.ease ?? d3.easeCubicInOut)(t), mix = (a, b) => a + (b - a) * e;
-    // The clip shrinks on a log scale, so the lens closes in smoothly instead of snapping at the end
-    const clipR = Math.exp(mix(Math.log(morph?.from.clipR ?? to.clipR), Math.log(to.clipR)));
     const f = morph?.from ?? to;
-    return { cx: mix(f.cx, to.cx), cy: mix(f.cy, to.cy), r: mix(f.r, to.r), ringR: mix(f.ringR, to.ringR), clipR, k: e };
+    // Everything on one curve: the lens closes in from the hero's ring to its column while the earth moves and resizes.
+    // The brass ring stays on the visible edge all the way, as the panel draws it: on the earth's rim while the earth
+    // is the smaller of the two, else on the lens's rim (its gap to the earth narrows from the hero's 12 px to 6)
+    const r = mix(f.r, to.r), clipR = mix(f.clipR, to.clipR);
+    const ringR = Math.min(r + mix(f.ringR - f.r, 6), clipR + 4);
+    return { cx: mix(f.cx, to.cx), cy: mix(f.cy, to.cy), r, ringR, clipR, k: e };
   }
 
   /** The detailed shapes that can reach the lens this frame (their bounding circle meets the visible cap). */
@@ -919,8 +922,21 @@ export function createGlobe(canvas, world, { onView, heroClear = () => 0 } = {})
         const dist = d3.geoDistance(a, b), along = d3.geoInterpolate(a, b);
         const w = (z) => 2 / Math.pow(1.55, z - 1);
         const path = d3.interpolateZoom.rho(1.3)([0, 0, w(z0)], [dist, 0, w(z1)]);
-        rotAt = (e) => { const [ux] = path(e); const [lon, lat] = along(dist ? ux / dist : 1); return [-lon, -lat, 0]; };
-        zoomAt = (e) => 1 + Math.log(2 / path(e)[2]) / Math.log(1.55);
+        const zoomOf = (e) => 1 + Math.log(2 / path(e)[2]) / Math.log(1.55);
+        // A lens can't show more than the whole earth: a path that would pull back further (far apart, or starting from
+        // the whole earth, as the first question does) would shrink the earth inside the lens and grow it back. It
+        // turns across the whole earth instead, as far out as it needs (never past zoom 1), and dives in at the end
+        // The roll comes along on the same curve (the size step's desk globe hands over tilted on its axis)
+        const rollAt = (e) => from[2] + (target[2] - from[2]) * e;
+        let dips = false;
+        for (let i = 1; i < 32 && !dips; i++) dips = zoomOf(i / 32) < 0.995;
+        if (!dips) {
+          rotAt = (e) => { const [ux] = path(e); const [lon, lat] = along(dist ? ux / dist : 1); return [-lon, -lat, rollAt(e)]; };
+          zoomAt = zoomOf;
+        } else {
+          rotAt = (e) => { const [lon, lat] = along(e); return [-lon, -lat, rollAt(e)]; };
+          zoomAt = (e) => 1 + (z0 - 1) * (1 - e) * (1 - e) + (z1 - 1) * e * e;
+        }
       }
       flight = { start: performance.now(), duration: Math.max(1, duration), rot: rotAt, zoom: zoomAt, ease };
       markBusy(duration);
@@ -974,7 +990,10 @@ export function createGlobe(canvas, world, { onView, heroClear = () => 0 } = {})
     setStage(name, { ms = MORPH_MS, ease = null } = {}) {
       if (name === stage) return;
       // Leaving the hero: remember where the globe is now, and move it from there into its column
-      morph = stage === 'hero' && name === 'panel' && MORPH_MS ? { start: performance.now(), duration: REDUCED ? MORPH_MS : ms, ease, from: heroFrame() } : null;
+      // The lens starts as a circle just inside the hero's ring (the hero isn't clipped: this frame looks the same) and
+      // closes in from there, on the same curve as the move, so the ring never floats inside the earth
+      const hero = heroFrame();
+      morph = stage === 'hero' && name === 'panel' && MORPH_MS ? { start: performance.now(), duration: REDUCED ? MORPH_MS : ms, ease, from: { ...hero, clipR: hero.ringR - 4 } } : null;
       if (morph) markBusy(morph.duration);
       stage = name;
       if (name === 'hero') {

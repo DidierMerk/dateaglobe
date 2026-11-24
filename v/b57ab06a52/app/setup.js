@@ -15,6 +15,9 @@ const EUROPE = { lat: 42, lon: 12, zoom: 1 };
 // Phones go from the landing page straight to typing: the keyboard rises with the tap, so the globe rides up
 // with it on the keyboard's own curve (a quick start that settles softly) into the small lens beside the question
 const GLIDE = { ms: 900, ease: bezier(0.2, 0.8, 0.2, 1) };
+// Wide screens: the hero globe moves into its column and the camera flies into the first country as one move, on one
+// clock: it gets going at once (no still beat while the landing fades) and settles softly into the lens
+const ARRIVE = { ms: 1200, ease: bezier(0.35, 0, 0.15, 1) };
 const root = document.documentElement;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** Phones and upright tablets: one column, where the moves below replace the cross-fades. */
@@ -230,8 +233,8 @@ export function createSetupFlow({ bundle, world, globe, panel, landingEl, captio
         document.body.classList.add('arriving');
         setTimeout(() => document.body.classList.remove('arriving'), 1600);
         landingEl.innerHTML = '';
-        globe.setStage('panel');
-        showLanguage();
+        globe.setStage('panel', ARRIVE);
+        showLanguage({ glide: ARRIVE });
       });
     });
   }
@@ -246,19 +249,19 @@ export function createSetupFlow({ bundle, world, globe, panel, landingEl, captio
   const orList = (xs) => (xs.length < 3 ? xs.join(' or ') : `${xs.slice(0, -1).join(', ')} or ${xs.at(-1)}`);
 
   /** typing: arriving from the landing page on a phone, laid out for the keyboard from the start. */
-  function showLanguage({ typing = false, arrive = null } = {}) {
+  function showLanguage({ typing = false, arrive = null, glide = null } = {}) {
     if (state.language && state.language !== 'xx') return showDetected(state.language);
-    startDetection({ typing, arrive });
+    startDetection({ typing, arrive, glide });
   }
 
   /**
    * Start over with every language possible; earlier answers are kept to prefill. probe: begin with this
    * country ("Not Dutch?" stays on the country in view, its earlier answer ready to retype).
    */
-  function startDetection({ typing = false, arrive = null, probe = null } = {}) {
+  function startDetection({ typing = false, arrive = null, probe = null, glide = null } = {}) {
     state.candidates = LANGS;
     state.asked = [];
-    showAsk(probe ?? nextProbe(LANGS, []), { typing, arrive });
+    showAsk(probe ?? nextProbe(LANGS, []), { typing, arrive, glide });
   }
 
   /** Focus the answer field (inside a tap, so an iPhone raises its keyboard); select an earlier answer to retype. */
@@ -302,11 +305,12 @@ export function createSetupFlow({ bundle, world, globe, panel, landingEl, captio
     globe.flyTo(closeUp(probe, countries), glide ? glide.ms : 1500, { mark: false, ease: glide?.ease });
   }
 
-  function showAsk(probe, { typing = false, arrive = null } = {}) {
+  /** glide: the camera's flight on the clock of a move it is part of (the landing's globe moving into its column). */
+  function showAsk(probe, { typing = false, arrive = null, glide = null } = {}) {
     setMode('setup');
     const inPlace = askTyping();
     state.probe = probe;
-    showProbe(probe, { glide: typing ? GLIDE : null, hop: inPlace });
+    showProbe(probe, { glide: typing ? GLIDE : glide, hop: inPlace });
     captionEl.textContent = '';
 
     // The next country while typing: the keyboard stays up and nothing moves but the globe and the words.
