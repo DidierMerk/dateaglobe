@@ -78,17 +78,34 @@
     "author": { "@type": "Person", "name": "Didier Merk", "url": "https://didiermerk.github.io/" }
   }
   </script>
+  <!-- The site's name for Google's results (shown above the title instead of the bare domain): a WebSite on the home
+       page, its name the same as og:site_name and the start of the <title> -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Date a Globe",
+    "alternateName": "dateaglobe.app",
+    "url": "https://dateaglobe.app/"
+  }
+  </script>
   <!-- The icon (the desk globe): SVG for the tab, PNGs where SVG isn't taken, a paper tile for home screens.
-       Sources in icons/ (icon.svg, icon-maskable.svg); the short name keeps the long title off the home screen. -->
+       Sources in icons/ (icon.svg, icon-maskable.svg); the short name keeps the long title off the home screen.
+       Search results: Google wants a square icon of a multiple of 48 px, so the paper tile is listed at 48, 96 and 192
+       (first, so browsers that take the last icon still pick the tab's SVG), and /favicon.ico holds it for those that
+       only look there. -->
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="icon" href="icons/favicon-96.png" sizes="96x96" type="image/png">
+  <link rel="icon" href="icons/favicon-48.png" sizes="48x48" type="image/png">
   <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="icon" href="icons/favicon-16.png" sizes="16x16" type="image/png">
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-title" content="Date a Globe">
-  <link rel="stylesheet" href="v/e299944ef1/app/style.css">
-  <link rel="stylesheet" href="v/e299944ef1/app/help.css">
-  <link rel="stylesheet" href="v/e299944ef1/app/share-modal.css">
+  <link rel="stylesheet" href="v/4e468f7848/app/style.css">
+  <link rel="stylesheet" href="v/4e468f7848/app/help.css">
+  <link rel="stylesheet" href="v/4e468f7848/app/share-modal.css">
 </head>
 <body class="mode-landing">
   <!-- Shown only where JavaScript is off; also read by search engines and AI tools that don't run the app -->
@@ -140,8 +157,8 @@
   </footer>
 
   <!-- Served from node_modules by tools/serve.mjs, so the app works offline; the published build copies these files. -->
-  <script src="v/e299944ef1/node_modules/d3/dist/d3.min.js"></script>
-  <script src="v/e299944ef1/node_modules/topojson-client/dist/topojson-client.min.js"></script>
-  <script type="module" src="v/e299944ef1/app/app.js"></script>
+  <script src="v/4e468f7848/node_modules/d3/dist/d3.min.js"></script>
+  <script src="v/4e468f7848/node_modules/topojson-client/dist/topojson-client.min.js"></script>
+  <script type="module" src="v/4e468f7848/app/app.js"></script>
 </body>
 </html>
