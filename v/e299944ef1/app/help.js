@@ -1,13 +1,15 @@
-// "How it works": the help behind the "?" at the top bar's right end. Four pages on one strip that follows the finger and
+// "How it works": the help behind the "?" at the top bar's right end. Five pages on one strip that follows the finger and
 // runs off the help's edges. On every page the app's name and ✕; under every page one row: Previous · the dots · Next.
 //   1. About                              the maker in a desk globe's brass ring, a few words; at the foot the ways to
 //                                         reach him and the coffee (no figure, no loop)
 //   2. Every globe is frozen in time      Africa and Europe hold still while the years run 1886 → 2025, each year's borders
 //   3. Date your own globe                three of the quiz's questions answered, the years closing in, then the result: 1962
-//   4. Guess the year of a globe          a game on a 1985 globe: 1973 too early, 1996 too late, 1985 got it in 3; at its
-//                                         foot "Map data" under a hairline, the help's credits, last as in a book
+//   4. Guess the year of a globe          a game on a 1985 globe: 1973 too early, 1996 too late, 1985 got it in 3
+//   5. Privacy Statement                  a colophon, last as in a book: a short privacy statement, then ruled rows (Feedback,
+//                                         Borders, Code) with a brass label beside each; at the foot the imprint
+//                                         (no figure, no loop)
 // Pages 2–4: a figure that plays in a loop, a title and two or three short points. The row: page 1 has no Previous and its
-// Next reads "How to play" (where it fits); page 4 has only Previous.
+// Next reads "How to play", page 4's reads "Credits" (each where it fits, else "Next"); page 5 has only Previous.
 //
 // Phones: the app's sheet from the bottom edge (on its side: figure beside words). Upright tablets and laptops: a card in the
 // middle. Paper veil behind. Out: ✕, Esc, a tap outside, a swipe down (sheet). Pages: a sideways swipe (the strip follows the
@@ -56,6 +58,7 @@ const PAGES = [
   { title: 'Every globe is frozen in time.', points: ['Over the years countries can split, join together or take new names; capitals move and lakes dry up.', 'Every globe is a snapshot of the past. Its borders, countries and names tell the story of the world at the time it was made.'] },
   { title: 'Date your own globe.', points: ['With your own globe or map in front of you, answer a few questions about the world it shows.', 'Every answer narrows down the years in which it could have been made.', 'Through this we can discover the years your globe or map was most likely made in.'] },
   { title: 'Guess the year of a globe.', points: ['No globe or map at hand? Test your own dating skills.', 'Look at a globe from the past and guess when it was made.', 'You have five guesses, and every miss earns a new hint.'] },
+  { title: 'Privacy Statement', info: true },
 ];
 
 // ------------------------------------------------------------------ page 1, the About
@@ -85,8 +88,26 @@ const ABOUT = `
     <div class="ha-row">${ext('https://didiermerk.github.io/', ico('github'), 'ha-icon', 'GitHub')}${ext('https://www.linkedin.com/in/didier-merk/', ico('linkedin'), 'ha-icon', 'LinkedIn')}${ext('https://x.com/hallometdidier', ico('x'), 'ha-icon', 'X')}<a class="ha-icon ha-mail" href="#" aria-label="Email">${ico('mail')}</a>
       ${ext('https://www.youtube.com/watch?v=dQw4w9WgXcQ', `${ico('cup')}<span>Buy me a coffee</span>`, 'ha-coffee')}</div>
   </div>`;
-// the credits the data's licences ask for, at the foot of the last page; each name links to its source, read as plain text
-const CREDITS = `<div class="hl-end"><p class="ha-credits"><b>Map data</b> ${ext('https://icr.ethz.ch/data/cshapes/', 'CShapes 2.0')} · ${ext('https://www.geoboundaries.org', 'geoBoundaries')} · ${ext('https://www.naturalearthdata.com', 'Natural Earth')}</p></div>`;
+
+// ------------------------------------------------------------------ page 5, privacy and credits (a book's colophon)
+// The privacy statement, then ruled rows with a brass label beside each: Feedback (the About's icons, email first), then
+// the credits the data's licences ask for (each name a link that reads as ink, a quieter line under it). At the page's
+// foot the imprint left, "Non-commercial" right (CShapes is CC BY-NC). Page 4's Next calls this page "Credits".
+const ent = (val, small) => `<p class="hi-val">${val}<small>${small}</small></p>`;
+const row = (label, ...vals) => `<li><p class="hi-label">${label}</p><div class="hi-vals">${vals.join('')}</div></li>`;
+const nw = (t) => `<span class="hi-nw">${t}</span>`;
+const INFO = `
+  <h2 class="help-title hi-title">Privacy Statement</h2>
+  <p class="ha-text hi-privacy">No accounts, cookies, ads or tracking. Everything runs in your browser: your answers only leave your device in a link you choose to share.</p>
+  <ul class="hi-list">
+    ${row('Feedback', `<div class="hi-icons"><a class="ha-icon ha-mail" href="#" aria-label="Email">${ico('mail')}</a>${ext('https://didiermerk.github.io/', ico('github'), 'ha-icon', 'GitHub')}${ext('https://www.linkedin.com/in/didier-merk/', ico('linkedin'), 'ha-icon', 'LinkedIn')}${ext('https://x.com/hallometdidier', ico('x'), 'ha-icon', 'X')}</div>`)}
+    ${row('Borders', ent(ext('https://icr.ethz.ch/data/cshapes/', 'CShapes 2.0'), `Schvitz et al., ${nw('ETH Zürich')} · ${nw('CC BY-NC 4.0')}`),
+      ent(ext('https://www.geoboundaries.org/', 'geoBoundaries'), `${nw('1930s–40s')} shapes · ${nw('Runfola et al.')} · ${nw('CC BY 4.0')}, modified`),
+      ent(ext('https://www.naturalearthdata.com/downloads/10m-physical-vectors/', 'Natural Earth'), 'Lakes and rivers · Public domain'))}
+    ${row('Code', ent(`${ext('https://d3js.org/', 'D3')} · ${ext('https://github.com/topojson/topojson', 'TopoJSON')}`, 'Mike Bostock · ISC licence'))}
+  </ul>
+  <div class="hi-gap"></div>
+  <div class="hi-foot"><p><span class="hi-name">Date a Globe · </span>v1.0 · © 2026 Didier Merk</p><p>Non-commercial</p></div>`;
 
 // ------------------------------------------------------------------ a small globe in its brass ring (globe.js's paint)
 function smallGlobe(canvas, d) {
@@ -272,9 +293,9 @@ export function createHelp({ button, data = async () => ({}), debug = false }) {
     <div class="help-head"><p class="help-brand"><span class="brand-mark" aria-hidden="true">◍</span> Date a Globe</p>
       <button type="button" class="help-close" aria-label="Close"><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-5,-5L5,5M-5,5L5,-5"/></svg></button></div>
     <div class="help-view"><div class="help-track">${PAGES.map((p, i) => `
-      <section class="help-page${i === PAGES.length - 1 ? ' has-end' : ''}" data-i="${i}" role="group" aria-roledescription="page" aria-label="${i + 1} of ${PAGES.length}">
-        ${p.about ? `<div class="help-about">${ABOUT}</div>` : `<div class="help-pics" aria-hidden="true"><div class="help-stage"></div></div>
-        <div class="help-words"><h2 class="help-title">${p.title}</h2><ul class="help-points">${p.points.map((x) => `<li>${x}</li>`).join('')}</ul>${i === PAGES.length - 1 ? CREDITS : ''}</div>`}
+      <section class="help-page" data-i="${i}" role="group" aria-roledescription="page" aria-label="${i + 1} of ${PAGES.length}">
+        ${p.about ? `<div class="help-about">${ABOUT}</div>` : p.info ? `<div class="help-info">${INFO}</div>` : `<div class="help-pics" aria-hidden="true"><div class="help-stage"></div></div>
+        <div class="help-words"><h2 class="help-title">${p.title}</h2><ul class="help-points">${p.points.map((x) => `<li>${x}</li>`).join('')}</ul></div>`}
       </section>`).join('')}</div></div>
     <div class="help-nav">
       <button type="button" class="hn-prev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg><span>Previous</span></button>
@@ -331,14 +352,15 @@ export function createHelp({ button, data = async () => ({}), debug = false }) {
   let lit = -1;
   function showDot(j) { if (j === lit) return; lit = j; dots.forEach((b, k) => b.classList.toggle('on', k === j)); navFor(j); }
   // Previous / Next follow the strip like the dots: none before page 1, none after the last; page 1's Next says where it goes
-  const nav = $('.help-nav'), prevB = $('.hn-prev'), nextB = $('.hn-next'), nextWord = $('.hn-word'), navFit = { first: true };
+  const nav = $('.help-nav'), prevB = $('.hn-prev'), nextB = $('.hn-next'), nextWord = $('.hn-word'), navFit = { first: true, credits: true };
   function navFor(j) {
     prevB.classList.toggle('is-off', j === 0); prevB.tabIndex = j === 0 ? -1 : 0;
     nextB.classList.toggle('is-off', j === N - 1); nextB.tabIndex = j === N - 1 ? -1 : 0;
-    nextWord.textContent = j === 0 && navFit.first ? 'How to play' : 'Next';
+    // on the last page Next fades out: it keeps the word it had (relabelled now, "Credits" would flash "Next" as it goes)
+    if (j < N - 1) nextWord.textContent = j === 0 && navFit.first ? 'How to play' : j === N - 2 && navFit.credits ? 'Credits' : 'Next';
   }
   // the words' size: 15 px, smaller (to 12) until Previous and Next each fit their half beside the centred dots; one size
-  // on every page. "How to play" only where it fits at that size, else "Next". Only if even 12 px is too wide: Previous
+  // on every page. "How to play" (page 1) and "Credits" (page 4) only where they fit at that size, else "Next". Only if even 12 px is too wide: Previous
   // keeps just its arrow (its word stays for screen readers).
   function fitNav() {
     const half = () => (nav.clientWidth - dotsBox.offsetWidth) / 2 - 4;
@@ -348,6 +370,7 @@ export function createHelp({ button, data = async () => ({}), debug = false }) {
     while ((!fits(prevB, -8) || !fits(nextB)) && f > 12) { f -= 0.5; nav.style.setProperty('--nf', `${f}px`); }
     if (!fits(prevB, -8)) nav.classList.add('is-icon');
     nextWord.textContent = 'How to play'; navFit.first = fits(nextB);
+    nextWord.textContent = 'Credits'; navFit.credits = fits(nextB);
     lit = -1; // the next place() sets the buttons and the word again
   }
 
@@ -518,7 +541,7 @@ export function createHelp({ button, data = async () => ({}), debug = false }) {
   dots.forEach((b, j) => b.addEventListener('click', () => go(j)));
   dlg.addEventListener('dragstart', (e) => e.preventDefault()); // a mouse drag on the photo or a link pages, as anywhere else
   prevB.addEventListener('click', () => go(S.i - 1)); nextB.addEventListener('click', () => go(S.i + 1));
-  $('.ha-mail').addEventListener('click', (e) => { e.preventDefault(); location.href = `mailto:${MAIL.join('@')}`; });
+  $$('.ha-mail').forEach((m) => m.addEventListener('click', (e) => { e.preventDefault(); location.href = `mailto:${MAIL.join('@')}`; })); // the About's and page 5's
 
   // a press while open: the app hears nothing of it (its click still comes: the veil, ✕ and the dots act on click)
   function onDown(e) {

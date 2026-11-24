@@ -121,8 +121,7 @@ body.mode-landing .topbar .help-btn { pointer-events: auto; animation: fade-in .
 
 /* --- Page 1, the About (help.js ABOUT) ----------------------------------------------------------------------------
    Your photo in a desk globe's brass ring and stand, the hello, three short paragraphs. At the page's foot (it takes the
-   height of the figure pages, so the open space sits under the words): plain icons and the coffee on one line. "Map
-   data" is the last page's footer (help.js CREDITS, below). */
+   height of the figure pages, so the open space sits under the words): plain icons and the coffee on one line. */
 .help-page:has(.help-about), .help.is-side .help-page:has(.help-about) { align-self: stretch; display: flex; flex-direction: column; }
 .help-about { flex: 1; display: flex; flex-direction: column; min-width: 0; padding-top: 2px; }
 .ha-top { display: flex; gap: 14px; align-items: center; margin: 0 0 12px; }
@@ -151,12 +150,6 @@ body.mode-landing .topbar .help-btn { pointer-events: auto; animation: fade-in .
 .ha-coffee .ha-ico { width: 17px; height: 17px; color: var(--brass); }
 .ha-coffee:hover { border-color: var(--border); }
 .help-about a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; border-radius: 4px; }
-/* Map data (the last page's footer): each source a link that reads as plain text */
-.ha-credits { margin: 0; padding-top: 10px; border-top: 1px solid var(--paper-3); font: 11.5px/1.45 var(--sans); color: var(--ink-soft); }
-.ha-credits b { font-weight: 600; color: var(--ink); margin-right: 2px; }
-.ha-credits a, .ha-credits b { white-space: nowrap; }
-.ha-credits a { color: inherit; text-decoration: none; }
-.ha-credits a:hover { color: var(--ink); }
 /* a phone on its side has little height: a smaller globe and tighter gaps */
 .help.is-side .ha-top { margin-bottom: 8px; }
 .help.is-side .ha-globe { width: 66px; height: 69px; }
@@ -178,7 +171,6 @@ body.mode-landing .topbar .help-btn { pointer-events: auto; animation: fade-in .
 .help.is-tiny:not(.is-side) .ha-globe img { left: 7px; top: 7px; width: 52px; height: 52px; }
 .help.is-tiny:not(.is-side) .ha-text + .ha-text { margin-top: .55em; }
 .help.is-tiny:not(.is-side) .ha-row { margin: 10px 0 4px; }
-.help.is-tiny:not(.is-side) .ha-credits { padding-top: 8px; }
 
 /* --- Under every page: Previous · the dots · Next (help.js navFor / fitNav) ---------------------------------------
    Quiet words in the app's serif: Next in ink with a brass chevron, Previous in the softer ink. The dots keep the centre
@@ -201,12 +193,55 @@ body.mode-landing .topbar .help-btn { pointer-events: auto; animation: fade-in .
 .help-nav.is-icon .hn-prev { width: 44px; justify-content: center; padding: 0; margin-left: -12px; }
 @media (prefers-reduced-motion: reduce) { .hn-prev, .hn-next { transition: none; } }
 
-/* --- The last page's foot: "Map data" under a hairline (help.js CREDITS) ------------------------------------------
-   The page takes the help's height (the About's), so the credits sit at its foot, just above the row of Previous and
-   the dots, where the About has its icons. A phone on its side: right under the points, in the words' column. */
-.help-page.has-end { align-self: stretch; display: flex; flex-direction: column; }
-.help-page.has-end .help-words { flex: 1; display: flex; flex-direction: column; }
-.hl-end { margin-top: auto; padding-top: 14px; }
-.help.is-side .help-page.has-end { flex-direction: row; align-items: center; }
-.help.is-side .help-page.has-end .help-words { flex: 1 1 0; display: block; }
-.help.is-side .hl-end { margin-top: 14px; padding-top: 0; }
+/* --- Page 5, privacy and credits (help.js INFO): a book's colophon ----------------------------------------------
+   The title, the privacy statement (the About's paragraph voice, one step smaller), then ruled rows (a hairline above
+   and under each): a brass label on the left, as the result labels "Likely range"; Feedback holds the About's plain
+   icons, the credit rows a source's name in ink (a link that reads as text) with a quieter line under it. The rows share
+   two thirds of the page's spare height and the gap above the footer one third. At the page's foot the imprint on the
+   left, "Non-commercial" on the right, small and in the border colour. */
+.help-page:has(.help-info) { align-self: stretch; display: flex; flex-direction: column; }
+.help-info { flex: 1; display: flex; flex-direction: column; min-width: 0; padding-top: 2px; }
+.help-info .hi-title { margin: 0 0 12px; }
+.hi-privacy { margin: 0 0 16px; }
+.help .hi-privacy { font-size: 14px; line-height: 1.42; }
+.help.is-card .hi-privacy { font-size: 14.5px; }
+.hi-list { flex: 2 1 auto; display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--paper-3); }
+.hi-list li { flex: 1 1 auto; display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--paper-3); }
+.hi-label { margin: 0; font: 600 9.5px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--brass); white-space: nowrap; }
+.hi-vals { min-width: 0; display: flex; flex-direction: column; gap: 9px; }
+.hi-val { margin: 0; min-width: 0; font: 13.5px/1.35 var(--sans); color: var(--ink); }
+.hi-val small { display: block; margin-top: 1px; font-size: 11.5px; line-height: 1.4; color: var(--ink-soft); text-wrap: balance; } /* short lines: balance (not pretty, see .ha-text) */
+.hi-val a { color: inherit; text-decoration: none; white-space: nowrap; }
+.hi-nw { white-space: nowrap; }
+@media (hover: hover) { .hi-val a:hover { color: color-mix(in srgb, var(--brass) 70%, var(--ink)); } }
+.help-info a:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; border-radius: 3px; }
+/* Feedback: the About's icons (36 px, 44 px targets); the first one's glyph on the values' line */
+.hi-icons { display: flex; align-items: center; gap: 4px; margin: -6px 0; }
+.hi-icons .ha-icon:first-child { margin-left: -9px; }
+.help-info .hi-icons a:focus-visible { outline-offset: -2px; border-radius: 50%; }
+.hi-gap { flex: 1 1 0; }
+.hi-foot { display: flex; justify-content: space-between; gap: 8px; padding-top: 12px; }
+.hi-foot p { margin: 0; font: 11px var(--sans); color: var(--border); letter-spacing: .02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.help.is-card .hi-val { font-size: 14px; }
+/* a small phone (under 360 × 600): a narrower label column, everything a little closer;
+   the footer drops "Date a Globe ·" (the head already says it) */
+.help.is-tiny:not(.is-side) .help-info .hi-title { margin-bottom: 8px; }
+.help.is-tiny:not(.is-side) .hi-privacy { margin-bottom: 10px; font-size: 12.5px; line-height: 1.38; }
+.help.is-tiny:not(.is-side) .hi-list li { grid-template-columns: 74px minmax(0, 1fr); gap: 8px; padding: 6px 0; }
+.help.is-tiny:not(.is-side) .hi-label { font-size: 9px; letter-spacing: .12em; white-space: normal; line-height: 1.5; }
+.help.is-tiny:not(.is-side) .hi-vals { gap: 6px; }
+.help.is-tiny:not(.is-side) .hi-val { font-size: 13px; }
+.help.is-tiny:not(.is-side) .hi-val small { font-size: 11px; }
+.help.is-tiny:not(.is-side) .hi-icons { margin: -8px 0; }
+.help.is-tiny:not(.is-side) .hi-foot p { font-size: 10px; }
+.help.is-tiny:not(.is-side) .hi-name { display: none; }
+/* a phone on its side: the title and the statement on the left, the rows on the right, the footer under both */
+.help.is-side .help-page:has(.help-info) { align-items: stretch; }
+.help.is-side .help-info { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); grid-template-rows: auto 1fr auto; column-gap: 28px; }
+.help.is-side .help-info .hi-title { grid-column: 1; grid-row: 1; font-size: 18px; margin: -2px 0 6px; }
+.help.is-side .hi-privacy { grid-column: 1; grid-row: 2; margin: 0; font-size: 13px; }
+.help.is-side .hi-list { grid-column: 2; grid-row: 1 / 3; }
+.help.is-side .hi-list li { padding: 3px 0; }
+.help.is-side .hi-vals { gap: 4px; }
+.help.is-side .hi-gap { display: none; }
+.help.is-side .hi-foot { grid-column: 1 / -1; grid-row: 3; }

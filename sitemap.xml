@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The pages search engines should list. One for now: the app. The domain is a placeholder (see index.html). -->
+<!-- The pages search engines should list. One for now: the app. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://dateaglobe.app/</loc>

@@ -9,7 +9,7 @@ import { leansOnSubject, distTo, LOOKS } from './game-logic.js';
 
 /** The app's address in the messages, and the links (always this address, on every host): a game of Guess the year to
  *  play as anyone would (?g=, from the game's score), or a dated globe sent as a game (?d=: "A friend's globe"). */
-export const SITE = 'didiermerk.github.io/dateaglobe';
+export const SITE = 'dateaglobe.app';
 export const gameLink = (code) => `${SITE}/?g=${code}`;
 export const datedLink = (code) => `${SITE}/?d=${code}`; // code: custom-globe.js writeLink
 
